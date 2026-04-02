@@ -1,0 +1,14 @@
+[Unit]
+Description=Claude Usage Monitor — Moniteur temps réel des limites d'utilisation Claude
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/uv run --project %h/Projets/claude-usage-monitor claude-usage-monitor
+Restart=on-failure
+RestartSec=10
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=%h/.Xauthority
+
+[Install]
+WantedBy=graphical-session.target
