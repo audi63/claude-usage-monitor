@@ -3,7 +3,10 @@
 Moniteur temps réel des limites d'utilisation Claude (Pro/Max) — tray icon dynamique, widget overlay always-on-top, notifications système.
 
 ![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)
-![License MIT](https://img.shields.io/badge/license-MIT-green)
+![Tous droits réservés](https://img.shields.io/badge/licence-tous%20droits%20r%C3%A9serv%C3%A9s-red)
+
+> **Projet publié à titre de présentation et de consultation.**
+> Tous droits réservés. Aucune utilisation, reproduction, modification, redistribution ou exploitation commerciale n'est autorisée sans accord écrit préalable de l'auteur. Voir [LICENSE.md](LICENSE.md).
 
 ## Fonctionnalités
 
@@ -91,4 +94,6 @@ Utilise l'API OAuth usage de Claude Code (`GET https://api.anthropic.com/api/oau
 
 ## Licence
 
-MIT — voir [LICENSE](LICENSE)
+**Tous droits réservés** — voir [LICENSE.md](LICENSE.md)
+
+Ce projet est publié à titre de présentation et de consultation uniquement. Aucune utilisation, reproduction, modification, redistribution ou exploitation commerciale n'est autorisée sans accord écrit préalable de l'auteur.
