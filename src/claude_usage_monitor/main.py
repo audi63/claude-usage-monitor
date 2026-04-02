@@ -203,37 +203,66 @@ class Application:
 
     @staticmethod
     def _force_kill_self() -> None:
-        """Tue proprement le processus courant ET ses enfants (PyInstaller).
+        """Tue le processus courant ET le bootloader parent (PyInstaller).
 
-        Sur Windows, PyInstaller crée un processus bootloader (parent) qui lance
-        le processus Python (enfant). Il faut tuer l'arbre entier.
-        On lance taskkill en processus DÉTACHÉ pour qu'il ne soit pas tué avec nous.
+        PyInstaller --onefile crée :
+          bootloader.exe (parent) → python process (enfant)
+        Il faut tuer les deux. On utilise l'API Win32 pour remonter au parent
+        et tuer toute la chaîne.
         """
         import platform
-        pid = os.getpid()
-        if platform.system() == "Windows":
+        if platform.system() != "Windows":
+            os._exit(0)
+            return
+
+        try:
+            import ctypes
+            import ctypes.wintypes
+
+            kernel32 = ctypes.windll.kernel32
+            ntdll = ctypes.windll.ntdll
+
+            # Structure pour NtQueryInformationProcess
+            class PROCESS_BASIC_INFORMATION(ctypes.Structure):
+                _fields_ = [
+                    ("Reserved1", ctypes.c_void_p),
+                    ("PebBaseAddress", ctypes.c_void_p),
+                    ("Reserved2", ctypes.c_void_p * 2),
+                    ("UniqueProcessId", ctypes.c_ulong),
+                    ("InheritedFromUniqueProcessId", ctypes.c_ulong),
+                ]
+
+            # Trouver le PID du parent (bootloader PyInstaller)
+            current_pid = os.getpid()
+            parent_pid = None
             try:
-                import subprocess
-                # DETACHED_PROCESS + CREATE_NEW_PROCESS_GROUP : taskkill n'est pas
-                # dans notre arbre de processus, donc il survit quand il nous tue
-                DETACHED_PROCESS = 0x00000008
-                CREATE_NEW_PROCESS_GROUP = 0x00000200
-                subprocess.Popen(
-                    ["taskkill", "/PID", str(pid), "/T", "/F"],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
-                )
+                handle = kernel32.OpenProcess(0x0400, False, current_pid)  # PROCESS_QUERY_INFORMATION
+                if handle:
+                    pbi = PROCESS_BASIC_INFORMATION()
+                    status = ntdll.NtQueryInformationProcess(
+                        handle, 0, ctypes.byref(pbi), ctypes.sizeof(pbi), None
+                    )
+                    if status == 0:
+                        parent_pid = pbi.InheritedFromUniqueProcessId
+                    kernel32.CloseHandle(handle)
             except Exception:
-                # Fallback : TerminateProcess via Win32 API
+                pass
+
+            # Tuer le parent (bootloader) s'il existe et est différent de nous
+            if parent_pid and parent_pid != current_pid:
                 try:
-                    import ctypes
-                    kernel32 = ctypes.windll.kernel32
-                    handle = kernel32.GetCurrentProcess()
-                    kernel32.TerminateProcess(handle, 0)
+                    parent_handle = kernel32.OpenProcess(0x0001, False, parent_pid)  # PROCESS_TERMINATE
+                    if parent_handle:
+                        kernel32.TerminateProcess(parent_handle, 0)
+                        kernel32.CloseHandle(parent_handle)
                 except Exception:
-                    os._exit(0)
-        else:
+                    pass
+
+            # Tuer notre propre processus
+            handle = kernel32.GetCurrentProcess()
+            kernel32.TerminateProcess(handle, 0)
+
+        except Exception:
             os._exit(0)
 
     def _toggle_overlay(self, visible: bool) -> None:

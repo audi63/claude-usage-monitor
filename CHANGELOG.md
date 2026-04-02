@@ -4,6 +4,11 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.0.8] — 2026-04-03
+
+### Corrigé
+- **Processus zombie après "Quitter"** : remplacement de taskkill par l'API Win32 native (`NtQueryInformationProcess` pour trouver le PID parent bootloader + `TerminateProcess` pour tuer parent et enfant). Élimine définitivement les processus fantômes dans le gestionnaire des tâches.
+
 ## [2.0.7] — 2026-04-03
 
 ### Corrigé
