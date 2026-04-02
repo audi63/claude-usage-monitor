@@ -12,6 +12,8 @@ from pathlib import Path
 
 import requests
 
+from claude_usage_monitor.i18n import t
+
 logger = logging.getLogger(__name__)
 
 # Client ID officiel de Claude Code (public, extrait du binaire)
@@ -48,6 +50,7 @@ class UsageData:
     fetched_at: float = field(default_factory=time.time)
     error: str | None = None
     subscription_type: str | None = None
+    is_disconnected: bool = False  # True = coupure réseau/token, False = rate limit ou OK
 
 
 def get_credentials_path() -> Path:
@@ -61,6 +64,7 @@ class ApiClient:
 
     def __init__(self) -> None:
         self._last_fetch: float = 0
+        self._last_success: bool = True  # bypass rate limit après erreur
         self._min_interval: float = 30  # secondes min entre appels auto
 
     def _read_credentials(self) -> dict | None:
@@ -151,18 +155,19 @@ class ApiClient:
         Gère automatiquement le refresh du token si expiré.
         Ne lève jamais d'exception — retourne UsageData avec champ error.
         """
-        # Rate limiting côté client (bypass si force=True)
-        if not force:
+        # Rate limiting côté client (bypass si force, ou si dernier appel en erreur)
+        if not force and self._last_success:
             elapsed = time.time() - self._last_fetch
             if elapsed < self._min_interval and self._last_fetch > 0:
-                return UsageData(error=f"Rate limit: attendre {self._min_interval - elapsed:.0f}s")
+                return UsageData(error=t("rate_limited"))
 
         try:
             # Lire les credentials
             creds = self._read_credentials()
             if creds is None:
                 return UsageData(
-                    error="Credentials non trouvées — lancer `claude login`"
+                    error=t("credentials_missing"),
+                    is_disconnected=True,
                 )
 
             oauth = creds.get("claudeAiOauth", {})
@@ -174,8 +179,9 @@ class ApiClient:
                 refreshed = self._refresh_token(creds)
                 if refreshed is None:
                     return UsageData(
-                        error="Token expiré — relancer `claude login`",
+                        error=t("token_expired"),
                         subscription_type=sub_type,
+                        is_disconnected=True,
                     )
                 creds = refreshed
                 self._write_credentials(creds)
@@ -183,7 +189,7 @@ class ApiClient:
 
             token = oauth.get("accessToken")
             if not token:
-                return UsageData(error="Token manquant dans les credentials")
+                return UsageData(error=t("token_missing"), is_disconnected=True)
 
             # Appel API
             self._last_fetch = time.time()
@@ -200,8 +206,11 @@ class ApiClient:
             )
 
             if resp.status_code == 429:
+                # 429 = API fonctionne mais on appelle trop souvent
+                # On garde _last_success = True pour ne pas passer en mode retry rapide
+                self._last_success = True
                 return UsageData(
-                    error="Rate limited par l'API — réessai au prochain cycle",
+                    error=t("rate_limited"),
                     subscription_type=sub_type,
                 )
 
@@ -225,14 +234,19 @@ class ApiClient:
                     resets_at=sd.get("resets_at", ""),
                 )
 
+            self._last_success = True
             return result
 
         except requests.ConnectionError:
-            return UsageData(error="API inaccessible — vérifier la connexion")
+            self._last_success = False
+            return UsageData(error=t("connection_waiting"), is_disconnected=True)
         except requests.Timeout:
-            return UsageData(error="Timeout — l'API ne répond pas")
+            self._last_success = False
+            return UsageData(error=t("timeout"), is_disconnected=True)
         except requests.RequestException as e:
-            return UsageData(error=f"Erreur API: {e}")
+            self._last_success = False
+            return UsageData(error=t("api_error", detail=str(e)), is_disconnected=True)
         except Exception as e:
+            self._last_success = False
             logger.exception("Erreur inattendue dans fetch_usage")
-            return UsageData(error=f"Erreur inattendue: {e}")
+            return UsageData(error=t("api_error", detail=str(e)), is_disconnected=True)

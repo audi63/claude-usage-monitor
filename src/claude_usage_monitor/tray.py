@@ -12,6 +12,7 @@ import pystray
 from pystray import MenuItem as Item
 
 from claude_usage_monitor.api import UsageData
+from claude_usage_monitor.i18n import t
 from claude_usage_monitor.icon_generator import generate_icon
 from claude_usage_monitor.utils import (
     format_countdown,
@@ -46,26 +47,26 @@ class TrayManager:
         self._icon = pystray.Icon(
             name="claude-usage-monitor",
             icon=generate_icon(None),
-            title="Claude Usage Monitor — Chargement...",
+            title=f"Claude Usage Monitor — {t('loading')}",
             menu=self._build_menu(),
         )
         self._icon.default_action = self._on_left_click
 
     def _build_menu(self) -> pystray.Menu:
         return pystray.Menu(
-            Item("Rafraîchir maintenant", self._handle_refresh),
+            Item(t("refresh_now"), self._handle_refresh),
             Item(
-                "Widget overlay",
+                t("overlay_widget"),
                 self._handle_toggle_overlay,
                 checked=lambda _: self._overlay_visible,
             ),
             pystray.Menu.SEPARATOR,
-            Item("Ouvrir claude.ai", self._handle_open_claude),
-            Item("Ouvrir les settings", self._handle_open_settings),
+            Item(t("open_claude"), self._handle_open_claude),
+            Item(t("open_settings"), self._handle_open_settings),
             pystray.Menu.SEPARATOR,
-            Item("Claude Usage Monitor v1.0.0", self._handle_about),
+            Item("Claude Usage Monitor v1.1.0", self._handle_about),
             pystray.Menu.SEPARATOR,
-            Item("Quitter", self._handle_quit),
+            Item(t("quit"), self._handle_quit),
         )
 
     def _on_left_click(self, icon: pystray.Icon, item: Item | None = None) -> None:
@@ -136,7 +137,7 @@ class TrayManager:
 
         sub = data.subscription_type or "?"
         ago = time_ago(data.fetched_at)
-        lines.append(f"{sub.capitalize()} | MàJ {ago}")
+        lines.append(f"{sub.capitalize()} | {t('last_update')} {ago}")
 
         return "\n".join(lines)
 

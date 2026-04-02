@@ -3,6 +3,8 @@
 Moniteur temps réel des limites d'utilisation Claude (Pro/Max) — tray icon dynamique, widget overlay always-on-top, notifications système.
 
 ![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)
+![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D6)
+![Linux](https://img.shields.io/badge/Linux-compatible-FCC624)
 ![Tous droits réservés](https://img.shields.io/badge/licence-tous%20droits%20r%C3%A9serv%C3%A9s-red)
 
 > **Projet publié à titre de présentation et de consultation.**
@@ -10,21 +12,34 @@ Moniteur temps réel des limites d'utilisation Claude (Pro/Max) — tray icon dy
 
 ## Fonctionnalités
 
-- **Tray icon dynamique** : icône colorée (vert/jaune/rouge) selon le niveau d'utilisation
-- **Tooltip informatif** : usage session (5h) et hebdo (7j) avec countdown
-- **Popup détaillé** : barres de progression, countdown temps réel, sparklines
-- **Widget overlay** : compact (~200×60px), always-on-top, ne vole jamais le focus
+- **Tray icon dynamique** : icône avec arc de progression coloré (style Claude, orange #D97744)
+- **Widget overlay** : compact (160×76px), always-on-top, ne vole jamais le focus
+- **Tooltip au survol** : countdown avant reset en temps réel
+- **Popup détaillé** : barres de progression, sparklines 24h, infos abonnement
 - **Notifications système** : alertes aux seuils configurables (80%, 95%)
 - **Historique** : tendances d'utilisation sur 7 jours avec mini-graphiques
 - **Raccourci clavier** : Ctrl+Shift+U pour toggle le widget overlay
-- **Multi-écran** : détection automatique, positionnement libre
+- **Multi-écran** : détection automatique, positionnement libre avec drag & drop
+- **Multilingue** : français, anglais, allemand, espagnol, portugais, italien (détection auto)
 - **Thèmes** : sombre, clair, auto (suit le système)
+- **Exécutable Windows** : `.exe` standalone, aucune installation requise
+
+## Plateformes supportées
+
+| Plateforme | Statut | Notes |
+|---|---|---|
+| Windows 10/11 | ✅ Testé | Exécutable `.exe` disponible |
+| Linux (X11) | ✅ Compatible | Nécessite `libappindicator3` |
+| macOS | ⚠️ Partiel | tkinter + pystray fonctionnels, non testé en production |
 
 ## Prérequis
 
+- [Claude Code](https://claude.ai) installé et connecté (`claude login`)
+
+### Depuis les sources (développeurs)
+
 - Python 3.12+
 - [uv](https://docs.astral.sh/uv/) (gestionnaire de paquets)
-- [Claude Code](https://claude.ai) installé et connecté (`claude login`)
 
 ### Linux uniquement
 
@@ -34,6 +49,12 @@ sudo apt install libappindicator3-1 gir1.2-appindicator3-0.1
 
 ## Installation
 
+### Option 1 : Exécutable Windows (recommandé)
+
+Télécharger `claude-usage-monitor.exe` depuis la page [Releases](https://github.com/audi63/claude-usage-monitor/releases) et le lancer directement.
+
+### Option 2 : Depuis les sources
+
 ```bash
 git clone https://github.com/audi63/claude-usage-monitor.git
 cd claude-usage-monitor
@@ -42,11 +63,24 @@ uv sync
 
 ## Utilisation
 
+### Exécutable
+
+Double-cliquer sur `claude-usage-monitor.exe`. L'icône apparaît dans la barre système.
+
+### Depuis les sources
+
 ```bash
 uv run claude-usage-monitor
 ```
 
-L'icône apparaît dans la barre système. Clic droit pour le menu contextuel.
+### Interactions
+
+- **Clic droit** sur le tray icon → menu contextuel (rafraîchir, overlay, quitter…)
+- **Clic gauche** sur le tray icon → popup détaillé
+- **Survol** du widget overlay → tooltip avec countdown avant reset
+- **Double-clic** sur le widget overlay → popup détaillé
+- **Glisser-déposer** le widget overlay → repositionner (position sauvegardée)
+- **Ctrl+Shift+U** → afficher/masquer le widget overlay
 
 ## Configuration
 
@@ -57,8 +91,9 @@ Fichier optionnel `~/.claude/usage-monitor-config.json` :
   "refresh_interval_seconds": 60,
   "notification_thresholds": [80, 95],
   "notifications_enabled": true,
-  "always_on_top": false,
-  "widget_opacity": 0.85,
+  "notify_on_reset": true,
+  "always_on_top": true,
+  "widget_opacity": 0.95,
   "widget_position": {
     "x": null,
     "y": null,
@@ -66,16 +101,29 @@ Fichier optionnel `~/.claude/usage-monitor-config.json` :
     "screen_index": 0
   },
   "theme": "dark",
+  "language": "auto",
   "hotkey_toggle": "ctrl+shift+u",
   "history_retention_days": 7
 }
 ```
 
+### Options de langue
+
+| Valeur | Langue |
+|---|---|
+| `"auto"` | Détection automatique (défaut) |
+| `"fr"` | Français |
+| `"en"` | English |
+| `"de"` | Deutsch |
+| `"es"` | Español |
+| `"pt"` | Português |
+| `"it"` | Italiano |
+
 ## Démarrage automatique
 
 ### Windows
 
-Créer un raccourci vers `uv run claude-usage-monitor` dans :
+Copier `claude-usage-monitor.exe` (ou un raccourci) dans :
 ```
 %APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\
 ```
@@ -88,12 +136,57 @@ systemctl --user enable claude-usage-monitor
 systemctl --user start claude-usage-monitor
 ```
 
+## Build de l'exécutable
+
+```bash
+uv pip install pyinstaller
+uv run python build.py
+```
+
+L'exécutable est généré dans `dist/claude-usage-monitor.exe` (~21 Mo).
+
+## Architecture technique
+
+```
+src/claude_usage_monitor/
+├── main.py           # Point d'entrée, orchestration threads
+├── api.py            # Client OAuth API (token refresh automatique)
+├── cache.py          # Cache JSON pour affichage immédiat au démarrage
+├── config.py         # Gestion configuration utilisateur
+├── i18n.py           # Internationalisation (6 langues)
+├── overlay.py        # Widget overlay always-on-top (Win32/X11)
+├── popup.py          # Popup détaillé avec sparklines
+├── tray.py           # Tray icon système (pystray)
+├── icon_generator.py # Génération d'icônes dynamiques (Pillow)
+├── notifications.py  # Notifications système aux seuils
+├── history.py        # Historique d'utilisation (7 jours)
+├── screens.py        # Détection multi-écran
+├── hotkeys.py        # Raccourcis clavier globaux (pynput)
+├── themes.py         # Thèmes sombre/clair/auto
+└── utils.py          # Utilitaires (formatage, couleurs)
+```
+
+### Threading
+
+- **Thread principal** : tkinter `mainloop()` (UI)
+- **Thread pystray** : tray icon système (`run_detached()`)
+- **Thread polling** : appels API en arrière-plan (daemon)
+- Communication inter-threads via `root.after(0, callback)`
+
+## Testeurs Linux et macOS recherchés
+
+L'application a été développée et testée sous **Windows 11 uniquement**. Le code inclut des fallbacks pour Linux et macOS, mais ils n'ont pas été validés en conditions réelles.
+
+Si vous utilisez Linux ou macOS, vos retours sont les bienvenus ! Consultez [CONTRIBUTING.md](CONTRIBUTING.md) pour la liste des points à tester et le format de signalement.
+
 ## Source de données
 
-Utilise l'API OAuth usage de Claude Code (`GET https://api.anthropic.com/api/oauth/usage`) — API non-officielle, peut changer sans préavis.
+Utilise l'API OAuth usage de Claude Code (`GET https://api.anthropic.com/api/oauth/usage`) avec le header `anthropic-beta: oauth-2025-04-20`. API non-officielle, peut changer sans préavis.
+
+Le token OAuth est lu depuis `~/.claude/.credentials.json` (partagé avec Claude Code) et rafraîchi automatiquement à expiration.
 
 ## Licence
 
 **Tous droits réservés** — voir [LICENSE.md](LICENSE.md)
 
-Ce projet est publié à titre de présentation et de consultation uniquement. Aucune utilisation, reproduction, modification, redistribution ou exploitation commerciale n'est autorisée sans accord écrit préalable de l'auteur.
+Ce projet est publié à titre de présentation et de consultation uniquement. Aucune utilisation, reproduction, modification, redistribution ou exploitation commerciale n'est autorisée sans accord écrit préalable de l'auteur. Voir [CONTRIBUTING.md](CONTRIBUTING.md) et [SECURITY.md](SECURITY.md).

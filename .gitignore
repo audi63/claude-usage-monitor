@@ -41,3 +41,6 @@ htmlcov/
 # Distribution
 *.tar.gz
 *.zip
+
+# PyInstaller
+*.spec

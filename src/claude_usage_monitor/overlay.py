@@ -9,6 +9,7 @@ from typing import Callable
 from claude_usage_monitor.api import UsageData
 from claude_usage_monitor.config import save_config
 from claude_usage_monitor.screens import clamp_position, get_preset_position
+from claude_usage_monitor.i18n import t
 from claude_usage_monitor.utils import (
     format_countdown,
     is_windows,
@@ -16,8 +17,8 @@ from claude_usage_monitor.utils import (
 
 logger = logging.getLogger(__name__)
 
-OVERLAY_WIDTH = 240
-OVERLAY_HEIGHT = 64
+OVERLAY_WIDTH = 160
+OVERLAY_HEIGHT = 76
 CHROMA_KEY = "#010101"
 
 # Palette Claude overlay
@@ -164,25 +165,25 @@ class OverlayWidget:
 
         # --- Section 5h ---
         y1 = 16
-        c.create_text(12, y1, text="Session (5h)", anchor="w",
+        bar_x1, bar_x2 = 12, OVERLAY_WIDTH - 12
+        c.create_text(bar_x1, y1, text=t("session_5h"), anchor="w",
                       fill=OV["fg_dim"], font=("Segoe UI", 9))
-        self._txt_5h_pct = c.create_text(OVERLAY_WIDTH - 12, y1, text="—",
+        self._txt_5h_pct = c.create_text(bar_x2, y1, text="—",
                                           anchor="e", fill=OV["fg"],
                                           font=("Segoe UI", 9, "bold"))
 
         # Barre 5h
         bar_y1 = y1 + 12
-        bar_x1, bar_x2 = 12, OVERLAY_WIDTH - 12
         c.create_rectangle(bar_x1, bar_y1, bar_x2, bar_y1 + 5,
                            fill=OV["bar_bg"], outline="")
         self._bar_5h = c.create_rectangle(bar_x1, bar_y1, bar_x1, bar_y1 + 5,
                                            fill=OV["bar_blue"], outline="")
 
         # --- Section 7j ---
-        y2 = 42
-        c.create_text(12, y2, text="Hebdo (7j)", anchor="w",
+        y2 = 48
+        c.create_text(bar_x1, y2, text=t("weekly_7d"), anchor="w",
                       fill=OV["fg_dim"], font=("Segoe UI", 9))
-        self._txt_7d_pct = c.create_text(OVERLAY_WIDTH - 12, y2, text="—",
+        self._txt_7d_pct = c.create_text(bar_x2, y2, text="—",
                                           anchor="e", fill=OV["fg"],
                                           font=("Segoe UI", 9, "bold"))
 
@@ -220,7 +221,7 @@ class OverlayWidget:
 
         if data.five_hour:
             pct = data.five_hour.percentage
-            self._canvas.itemconfig(self._txt_5h_pct, text=f"{pct:.0f} % utilisés")
+            self._canvas.itemconfig(self._txt_5h_pct, text=f"{pct:.0f}%")
             fill_w = max(0, int(bar_w * min(pct, 100) / 100))
             self._canvas.coords(self._bar_5h, bar_x1, 28, bar_x1 + fill_w, 33)
             self._canvas.itemconfig(self._bar_5h, fill=_bar_color(pct))
@@ -230,13 +231,13 @@ class OverlayWidget:
 
         if data.seven_day:
             pct = data.seven_day.percentage
-            self._canvas.itemconfig(self._txt_7d_pct, text=f"{pct:.0f} % utilisés")
+            self._canvas.itemconfig(self._txt_7d_pct, text=f"{pct:.0f}%")
             fill_w = max(0, int(bar_w * min(pct, 100) / 100))
-            self._canvas.coords(self._bar_7d, bar_x1, 54, bar_x1 + fill_w, 59)
+            self._canvas.coords(self._bar_7d, bar_x1, 60, bar_x1 + fill_w, 65)
             self._canvas.itemconfig(self._bar_7d, fill=_bar_color(pct))
         else:
             self._canvas.itemconfig(self._txt_7d_pct, text="—")
-            self._canvas.coords(self._bar_7d, bar_x1, 54, bar_x1, 59)
+            self._canvas.coords(self._bar_7d, bar_x1, 60, bar_x1, 65)
 
     # --- Tooltip au survol (affiche les countdowns) ---
 
@@ -248,10 +249,10 @@ class OverlayWidget:
         lines = []
         if self._data.five_hour:
             cd = format_countdown(self._data.five_hour.resets_at)
-            lines.append(f"Session (5h) : reset dans {cd}")
+            lines.append(f"{t('session_5h')} : {t('reset_in', time=cd)}")
         if self._data.seven_day:
             cd = format_countdown(self._data.seven_day.resets_at)
-            lines.append(f"Hebdo (7j) : reset dans {cd}")
+            lines.append(f"{t('weekly_7d')} : {t('reset_in', time=cd)}")
         if self._data.error:
             lines.append(f"⚠ {self._data.error}")
 

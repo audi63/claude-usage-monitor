@@ -13,6 +13,7 @@ from claude_usage_monitor.api import ApiClient, UsageData
 from claude_usage_monitor.cache import load as load_cache
 from claude_usage_monitor.cache import save as save_cache
 from claude_usage_monitor.config import load_config, save_config
+from claude_usage_monitor.i18n import init_i18n, t
 from claude_usage_monitor.history import save_entry as save_history
 from claude_usage_monitor.hotkeys import register_hotkey, unregister_all as unregister_hotkeys
 from claude_usage_monitor.notifications import NotificationManager
@@ -28,9 +29,11 @@ class Application:
 
     def __init__(self) -> None:
         self.config = load_config()
+        init_i18n(self.config.get("language", "auto"))
         self.api_client = ApiClient()
         self.current_data: UsageData | None = None
         self._polling = True
+        self._was_disconnected = False
 
         # Tkinter root (hidden) — thread principal
         self.root = tk.Tk()
@@ -88,8 +91,10 @@ class Application:
         poll_thread = threading.Thread(target=self._polling_loop, daemon=True)
         poll_thread.start()
 
-        # Premier fetch immédiat
-        self.root.after(500, self._request_refresh)
+        # Premier fetch immédiat (pas force=True, le rate limit client protège)
+        self.root.after(500, lambda: threading.Thread(
+            target=self._do_fetch, daemon=True,
+        ).start())
 
         # Boucle principale tkinter
         try:
@@ -98,13 +103,22 @@ class Application:
             self._quit()
 
     def _polling_loop(self) -> None:
-        """Boucle de polling API en arrière-plan."""
+        """Boucle de polling API en arrière-plan.
+
+        En cas d'erreur, passe en mode retry (15s) jusqu'à rétablissement.
+        """
+        RETRY_INTERVAL = 15  # secondes entre les tentatives en mode déconnecté
+
         # Attendre un peu avant le premier cycle (le fetch immédiat est déjà planifié)
         time.sleep(self.config.get("refresh_interval_seconds", 60))
 
         while self._polling:
             self._do_fetch()
-            interval = self.config.get("refresh_interval_seconds", 60)
+            # Intervalle réduit si déconnecté, normal sinon
+            if self._was_disconnected:
+                interval = RETRY_INTERVAL
+            else:
+                interval = self.config.get("refresh_interval_seconds", 60)
             # Dormir par petits incréments pour pouvoir s'arrêter rapidement
             for _ in range(int(interval)):
                 if not self._polling:
@@ -123,6 +137,11 @@ class Application:
 
     def _on_data_received(self, data: UsageData) -> None:
         """Callback appelé dans le thread principal après réception des données."""
+        if data.error and not data.is_disconnected and self.current_data and not self.current_data.error:
+            # Erreur temporaire (429) : garder les données existantes, juste logger
+            logger.warning("Erreur API temporaire: %s", data.error)
+            return
+
         self.current_data = data
         self.tray.update(data)
         self.popup.update_data(data)
@@ -130,8 +149,18 @@ class Application:
         self.notifications.check(data)
 
         if data.error:
+            if data.is_disconnected:
+                self._was_disconnected = True
             logger.warning("Erreur API: %s", data.error)
         else:
+            # Détecter la reconnexion après une coupure
+            if self._was_disconnected:
+                self._was_disconnected = False
+                logger.info("Connexion rétablie")
+                self.tray.notify(
+                    "Claude Usage Monitor",
+                    t("reconnected"),
+                )
             pcts = []
             if data.five_hour:
                 pcts.append(f"5h={data.five_hour.percentage:.1f}%")

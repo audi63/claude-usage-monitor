@@ -4,6 +4,24 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.1.0] — 2026-04-02
+
+### Ajouté
+- **Internationalisation (i18n)** : 6 langues supportées (fr, en, de, es, pt, it) avec détection automatique de la langue système
+- **Exécutable Windows** : build PyInstaller (`claude-usage-monitor.exe`, ~21 Mo, standalone)
+- Script `build.py` pour générer l'exécutable
+
+### Amélioré
+- **Widget overlay réduit** : 160×76px (au lieu de 240×64px), plus compact et discret
+- **Espacement amélioré** entre les sections 5h et 7j dans le widget overlay
+- **Tooltip au survol** : affiche les countdowns de reset au lieu de texte minuscule
+- **Opacité par défaut** augmentée à 0.95 (au lieu de 0.85) pour meilleure lisibilité
+- **Refresh manuel** bypass le rate limit client (plus de blocage "attendre 30s")
+- **Menu tray** : toutes les entrées sont cliquables (plus de lignes grisées)
+- **Fermeture propre** : l'icône tray disparaît correctement à la fermeture
+- Texte des pourcentages raccourci ("29%" au lieu de "29 % utilisés") pour le widget compact
+- Documentation complète : README avec tableau compatibilité, instructions .exe, architecture
+
 ## [1.0.0] — 2026-04-02
 
 ### Ajouté
