@@ -4,6 +4,11 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.0.7] — 2026-04-03
+
+### Corrigé
+- **"Quitter" laisse un processus zombie** : `taskkill` était lancé comme enfant du processus et se faisait tuer avec lui. Maintenant lancé en processus DÉTACHÉ (`DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP`) pour survivre et tuer l'arbre complet (bootloader PyInstaller + Python)
+
 ## [2.0.6] — 2026-04-03
 
 ### Corrigé

@@ -203,20 +203,36 @@ class Application:
 
     @staticmethod
     def _force_kill_self() -> None:
-        """Tue proprement le processus courant ET ses enfants (PyInstaller)."""
+        """Tue proprement le processus courant ET ses enfants (PyInstaller).
+
+        Sur Windows, PyInstaller crée un processus bootloader (parent) qui lance
+        le processus Python (enfant). Il faut tuer l'arbre entier.
+        On lance taskkill en processus DÉTACHÉ pour qu'il ne soit pas tué avec nous.
+        """
         import platform
         pid = os.getpid()
         if platform.system() == "Windows":
             try:
                 import subprocess
-                # /T = tuer l'arbre de processus, /F = forcer
+                # DETACHED_PROCESS + CREATE_NEW_PROCESS_GROUP : taskkill n'est pas
+                # dans notre arbre de processus, donc il survit quand il nous tue
+                DETACHED_PROCESS = 0x00000008
+                CREATE_NEW_PROCESS_GROUP = 0x00000200
                 subprocess.Popen(
                     ["taskkill", "/PID", str(pid), "/T", "/F"],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
+                    creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
                 )
             except Exception:
-                os._exit(0)
+                # Fallback : TerminateProcess via Win32 API
+                try:
+                    import ctypes
+                    kernel32 = ctypes.windll.kernel32
+                    handle = kernel32.GetCurrentProcess()
+                    kernel32.TerminateProcess(handle, 0)
+                except Exception:
+                    os._exit(0)
         else:
             os._exit(0)
 
