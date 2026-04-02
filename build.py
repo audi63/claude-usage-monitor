@@ -7,7 +7,7 @@ PyInstaller.__main__.run([
     "--name=claude-usage-monitor",
     "--onefile",
     "--windowed",
-    "--icon=NONE",
+    "--icon=assets/claude-usage-monitor.ico",
     # Inclure les fichiers data (icônes PNG, i18n)
     "--add-data=src/claude_usage_monitor/i18n.py;claude_usage_monitor",
     "--add-data=src/claude_usage_monitor/claude_icon_24.png;claude_usage_monitor",
