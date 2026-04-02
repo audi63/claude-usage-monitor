@@ -1,0 +1,47 @@
+[project]
+name = "claude-usage-monitor"
+version = "0.1.0"
+description = "Moniteur temps réel des limites d'utilisation Claude (Pro/Max) — tray icon, widget overlay, notifications"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+    { name = "audi63" },
+]
+
+dependencies = [
+    "requests>=2.31",
+    "pystray>=0.19",
+    "Pillow>=10.0",
+]
+
+[project.optional-dependencies]
+hotkeys = ["pynput>=1.7"]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+claude-usage-monitor = "claude_usage_monitor.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/claude_usage_monitor"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
