@@ -1,7 +1,6 @@
 """Script de build PyInstaller pour Claude Usage Monitor."""
 
 import PyInstaller.__main__
-import sys
 
 PyInstaller.__main__.run([
     "src/claude_usage_monitor/main.py",
@@ -9,10 +8,16 @@ PyInstaller.__main__.run([
     "--onefile",
     "--windowed",
     "--icon=NONE",
+    # Inclure les fichiers data (icônes PNG, i18n)
     "--add-data=src/claude_usage_monitor/i18n.py;claude_usage_monitor",
+    "--add-data=src/claude_usage_monitor/claude_icon_24.png;claude_usage_monitor",
+    "--add-data=src/claude_usage_monitor/claude_icon_32.png;claude_usage_monitor",
+    "--add-data=src/claude_usage_monitor/claude_icon_48.png;claude_usage_monitor",
+    # Hidden imports — tous les modules du package
     "--hidden-import=claude_usage_monitor",
     "--hidden-import=claude_usage_monitor.main",
     "--hidden-import=claude_usage_monitor.api",
+    "--hidden-import=claude_usage_monitor.autostart",
     "--hidden-import=claude_usage_monitor.cache",
     "--hidden-import=claude_usage_monitor.config",
     "--hidden-import=claude_usage_monitor.history",
@@ -23,8 +28,10 @@ PyInstaller.__main__.run([
     "--hidden-import=claude_usage_monitor.overlay",
     "--hidden-import=claude_usage_monitor.popup",
     "--hidden-import=claude_usage_monitor.screens",
+    "--hidden-import=claude_usage_monitor.sounds",
     "--hidden-import=claude_usage_monitor.themes",
     "--hidden-import=claude_usage_monitor.tray",
+    "--hidden-import=claude_usage_monitor.updater",
     "--hidden-import=claude_usage_monitor.utils",
     "--hidden-import=pystray._win32",
     "--hidden-import=pynput.keyboard._win32",
