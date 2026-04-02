@@ -11,6 +11,16 @@ Moniteur temps réel des limites d'utilisation Claude (Pro/Max) — tray icon dy
 > **Projet publié à titre de présentation et de consultation.**
 > Tous droits réservés. Aucune utilisation, reproduction, modification, redistribution ou exploitation commerciale n'est autorisée sans accord écrit préalable de l'auteur. Voir [LICENSE.md](LICENSE.md).
 
+## Aperçu
+
+| Widget compact | Vue au survol | Mode mini |
+|:-:|:-:|:-:|
+| ![Overlay normal](assets/screenshots/overlay-normal.png) | ![Overlay hover](assets/screenshots/overlay-hover.png) | ![Overlay mini](assets/screenshots/overlay-mini.png) |
+
+| Popup (double-clic) | Tooltip systray | Menu tray |
+|:-:|:-:|:-:|
+| ![Popup](assets/screenshots/popup.png) | ![Tooltip](assets/screenshots/tray-tooltip.png) | ![Menu](assets/screenshots/tray-menu.png) |
+
 ## Pourquoi ?
 
 - **Libérez votre console** : si vous affichiez vos quotas dans le terminal, cette appli remplace ça par un widget discret toujours visible — vous récupérez de l'espace dans votre fenêtre de travail.
