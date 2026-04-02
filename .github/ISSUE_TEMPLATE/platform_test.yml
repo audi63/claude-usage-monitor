@@ -1,0 +1,84 @@
+name: Test de compatibilité Linux / macOS
+description: Retour de test sur une plateforme non-Windows
+labels: ["platform-test", "help wanted"]
+body:
+  - type: dropdown
+    id: os
+    attributes:
+      label: Système d'exploitation
+      options:
+        - Ubuntu / Debian
+        - Fedora / RHEL
+        - Arch Linux
+        - macOS 14 (Sonoma)
+        - macOS 15 (Sequoia)
+        - Autre Linux
+    validations:
+      required: true
+  - type: input
+    id: desktop_env
+    attributes:
+      label: Environnement graphique
+      placeholder: "ex: GNOME 46, KDE Plasma 6, Wayland, X11"
+  - type: input
+    id: python_version
+    attributes:
+      label: Version Python
+      placeholder: "ex: 3.12.4"
+  - type: markdown
+    attributes:
+      value: "## Résultats des tests"
+  - type: dropdown
+    id: tray_icon
+    attributes:
+      label: Tray icon
+      options:
+        - Fonctionne
+        - Fonctionne partiellement
+        - Ne fonctionne pas
+    validations:
+      required: true
+  - type: dropdown
+    id: overlay
+    attributes:
+      label: Widget overlay (always-on-top, pas de vol de focus)
+      options:
+        - Fonctionne
+        - Fonctionne partiellement
+        - Ne fonctionne pas
+    validations:
+      required: true
+  - type: dropdown
+    id: notifications
+    attributes:
+      label: Notifications système
+      options:
+        - Fonctionne
+        - Ne fonctionne pas
+    validations:
+      required: true
+  - type: dropdown
+    id: drag_drop
+    attributes:
+      label: Drag & drop du widget
+      options:
+        - Fonctionne
+        - Ne fonctionne pas
+  - type: dropdown
+    id: hotkeys
+    attributes:
+      label: Raccourci clavier (Ctrl+Shift+U)
+      options:
+        - Fonctionne
+        - Ne fonctionne pas
+        - Non testé (pynput non installé)
+  - type: textarea
+    id: details
+    attributes:
+      label: Détails et observations
+      placeholder: Problèmes rencontrés, comportements inattendus, suggestions...
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      render: shell

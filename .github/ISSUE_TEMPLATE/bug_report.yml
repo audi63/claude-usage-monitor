@@ -1,0 +1,49 @@
+name: Bug Report
+description: Signaler un bug
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: os
+    attributes:
+      label: Système d'exploitation
+      options:
+        - Windows 10
+        - Windows 11
+        - Ubuntu / Debian
+        - Fedora / RHEL
+        - Arch Linux
+        - macOS 14 (Sonoma)
+        - macOS 15 (Sequoia)
+        - Autre
+    validations:
+      required: true
+  - type: input
+    id: python_version
+    attributes:
+      label: Version Python
+      placeholder: "ex: 3.12.4"
+  - type: input
+    id: app_version
+    attributes:
+      label: Version de l'application
+      placeholder: "ex: v1.1.0"
+  - type: textarea
+    id: description
+    attributes:
+      label: Description du bug
+      placeholder: Décrivez le problème rencontré
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Étapes pour reproduire
+      placeholder: |
+        1. Lancer l'application
+        2. ...
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (si disponibles)
+      description: "Lancer avec : `uv run claude-usage-monitor 2>&1 | tee test.log`"
+      render: shell
