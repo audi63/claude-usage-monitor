@@ -1,6 +1,6 @@
 [project]
 name = "claude-usage-monitor"
-version = "0.1.0"
+version = "1.0.0"
 description = "Moniteur temps réel des limites d'utilisation Claude (Pro/Max) — tray icon, widget overlay, notifications"
 readme = "README.md"
 requires-python = ">=3.12"

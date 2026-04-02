@@ -66,7 +66,7 @@ class TrayManager:
                 lambda: None,
                 enabled=False,
             ),
-            Item("Claude Usage Monitor v0.1.0", lambda: None, enabled=False),
+            Item("Claude Usage Monitor v1.0.0", lambda: None, enabled=False),
             pystray.Menu.SEPARATOR,
             Item("Quitter", self._handle_quit),
         )

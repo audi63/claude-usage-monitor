@@ -14,6 +14,7 @@ from claude_usage_monitor.cache import load as load_cache
 from claude_usage_monitor.cache import save as save_cache
 from claude_usage_monitor.config import load_config, save_config
 from claude_usage_monitor.history import save_entry as save_history
+from claude_usage_monitor.hotkeys import register_hotkey, unregister_all as unregister_hotkeys
 from claude_usage_monitor.notifications import NotificationManager
 from claude_usage_monitor.overlay import OverlayWidget
 from claude_usage_monitor.popup import PopupWindow
@@ -72,6 +73,11 @@ class Application:
 
         # Lancer le tray icon (thread séparé)
         self.tray.run_detached()
+
+        # Raccourci clavier global (optionnel)
+        hotkey = self.config.get("hotkey_toggle", "ctrl+shift+u")
+        if hotkey:
+            register_hotkey(hotkey, lambda: self.root.after(0, self.overlay.toggle))
 
         # Lancer le polling API (thread daemon)
         poll_thread = threading.Thread(target=self._polling_loop, daemon=True)
@@ -144,6 +150,7 @@ class Application:
         """Arrête proprement l'application."""
         logger.info("Arrêt de Claude Usage Monitor...")
         self._polling = False
+        unregister_hotkeys()
         self.overlay.hide()
         self.popup.hide()
         self.tray.stop()
