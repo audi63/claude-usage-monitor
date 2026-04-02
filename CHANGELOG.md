@@ -4,6 +4,13 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.0.3] — 2026-04-03
+
+### Corrigé
+- **Backoff exponentiel sur 429** : l'app attend progressivement plus longtemps (60s → 120s → 240s → max 300s) au lieu de retaper l'API en boucle
+- **Polling par défaut à 120s** : réduit la fréquence d'appels pour éviter les rate-limits persistants
+- **Reset automatique** : dès qu'un appel réussit, le backoff revient à la normale
+
 ## [2.0.2] — 2026-04-02
 
 ### Amélioré
