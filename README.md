@@ -5,9 +5,9 @@ Moniteur temps réel des limites d'utilisation Claude (Pro/Max) — tray icon dy
 ![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)
 ![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D6)
 ![Linux](https://img.shields.io/badge/Linux-compatible-FCC624)
+![macOS](https://img.shields.io/badge/macOS-compatible-999999)
 ![PyPI](https://img.shields.io/pypi/v/claude-monitor-usage)
-![Downloads](https://img.shields.io/pypi/dm/claude-monitor-usage)
-![GitHub Downloads](https://img.shields.io/github/downloads/audi63/claude-usage-monitor/total)
+![GitHub Downloads](https://img.shields.io/github/downloads/audi63/claude-usage-monitor/total?label=downloads)
 ![Tous droits réservés](https://img.shields.io/badge/licence-tous%20droits%20r%C3%A9serv%C3%A9s-red)
 
 > **Projet publié à titre de présentation et de consultation.**
