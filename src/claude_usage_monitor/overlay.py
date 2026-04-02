@@ -440,7 +440,12 @@ class OverlayWidget:
         for child in self._window.winfo_children():
             child.destroy()
 
-        # Calculer la hauteur dynamique
+        # IMPORTANT : redimensionner la fenêtre AVANT de construire l'UI
+        # sinon les labels se calculent sur la largeur compacte (64px mini / 160px normal)
+        self._window.geometry(f"{EXPANDED_WIDTH}x{EXPANDED_HEIGHT}+{wx}+{wy}")
+        self._window.update_idletasks()
+
+        # Construire l'UI étendue et ajuster la hauteur finale
         h = self._build_expanded_ui()
 
         self._window.geometry(f"{EXPANDED_WIDTH}x{h}+{wx}+{wy}")

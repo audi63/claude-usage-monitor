@@ -4,6 +4,11 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.0.6] — 2026-04-03
+
+### Corrigé
+- **Vue hover tronquée** : les labels étaient coupés au survol car l'UI se construisait avant le redimensionnement de la fenêtre (64px mini / 160px normal au lieu de 260px expanded)
+
 ## [2.0.5] — 2026-04-03
 
 ### Corrigé
