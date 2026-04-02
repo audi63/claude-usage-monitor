@@ -13,6 +13,7 @@ from claude_usage_monitor.api import ApiClient, UsageData
 from claude_usage_monitor.cache import load as load_cache
 from claude_usage_monitor.cache import save as save_cache
 from claude_usage_monitor.config import load_config, save_config
+from claude_usage_monitor.popup import PopupWindow
 from claude_usage_monitor.tray import TrayManager
 
 logger = logging.getLogger(__name__)
@@ -26,12 +27,14 @@ class Application:
         self.api_client = ApiClient()
         self.current_data: UsageData | None = None
         self._polling = True
-        self._popup_visible = False
 
         # Tkinter root (hidden) — thread principal
         self.root = tk.Tk()
         self.root.withdraw()
         self.root.title("Claude Usage Monitor")
+
+        # Popup détaillé
+        self.popup = PopupWindow(self.root, on_refresh=self._request_refresh)
 
         # Tray icon
         self.tray = TrayManager(
@@ -45,7 +48,7 @@ class Application:
         cached = load_cache()
         if cached:
             self.current_data = cached
-            self.root.after(100, lambda: self.tray.update(cached))
+            self.root.after(100, lambda: self._on_data_received(cached))
 
     def run(self) -> None:
         """Lance l'application."""
@@ -94,6 +97,7 @@ class Application:
         """Callback appelé dans le thread principal après réception des données."""
         self.current_data = data
         self.tray.update(data)
+        self.popup.update_data(data)
 
         if data.error:
             logger.warning("Erreur API: %s", data.error)
@@ -110,9 +114,8 @@ class Application:
         threading.Thread(target=self._do_fetch, daemon=True).start()
 
     def _toggle_popup(self) -> None:
-        """Toggle le popup détaillé (sera implémenté en Phase 2)."""
-        self._popup_visible = not self._popup_visible
-        logger.debug("Popup toggle: %s", self._popup_visible)
+        """Toggle le popup détaillé."""
+        self.root.after(0, self.popup.toggle)
 
     def _toggle_overlay(self, visible: bool) -> None:
         """Toggle le widget overlay (sera implémenté en Phase 3)."""
@@ -122,6 +125,7 @@ class Application:
         """Arrête proprement l'application."""
         logger.info("Arrêt de Claude Usage Monitor...")
         self._polling = False
+        self.popup.hide()
         self.tray.stop()
         try:
             self.root.quit()
