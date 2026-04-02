@@ -15,11 +15,11 @@ Moniteur temps réel des limites d'utilisation Claude (Pro/Max) — tray icon dy
 
 | Widget compact | Vue au survol | Mode mini |
 |:-:|:-:|:-:|
-| ![Overlay normal](assets/screenshots/overlay-normal.png) | ![Overlay hover](assets/screenshots/overlay-hover.png) | ![Overlay mini](assets/screenshots/overlay-mini.png) |
+| ![Overlay normal](https://raw.githubusercontent.com/audi63/claude-usage-monitor/main/assets/screenshots/overlay-normal.png) | ![Overlay hover](https://raw.githubusercontent.com/audi63/claude-usage-monitor/main/assets/screenshots/overlay-hover.png) | ![Overlay mini](https://raw.githubusercontent.com/audi63/claude-usage-monitor/main/assets/screenshots/overlay-mini.png) |
 
 | Popup (double-clic) | Tooltip systray | Menu tray |
 |:-:|:-:|:-:|
-| ![Popup](assets/screenshots/popup.png) | ![Tooltip](assets/screenshots/tray-tooltip.png) | ![Menu](assets/screenshots/tray-menu.png) |
+| ![Popup](https://raw.githubusercontent.com/audi63/claude-usage-monitor/main/assets/screenshots/popup.png) | ![Tooltip](https://raw.githubusercontent.com/audi63/claude-usage-monitor/main/assets/screenshots/tray-tooltip.png) | ![Menu](https://raw.githubusercontent.com/audi63/claude-usage-monitor/main/assets/screenshots/tray-menu.png) |
 
 ## Pourquoi ?
 

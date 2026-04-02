@@ -1,12 +1,29 @@
 [project]
 name = "claude-monitor-usage"
-version = "2.0.0"
-description = "Moniteur temps réel des limites d'utilisation Claude (Pro/Max) — tray icon, widget overlay, notifications"
+version = "2.0.1"
+description = "Real-time Claude Pro/Max usage monitor — tray icon, overlay widget, notifications, mini mode, sparklines"
 readme = "README.md"
 requires-python = ">=3.12"
+license = {text = "All Rights Reserved"}
 authors = [
     { name = "audi63" },
 ]
+keywords = ["claude", "anthropic", "usage", "monitor", "tray", "overlay", "quota"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Win32 (MS Windows)",
+    "Intended Audience :: Developers",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Utilities",
+]
+
+[project.urls]
+Homepage = "https://github.com/audi63/claude-usage-monitor"
+Repository = "https://github.com/audi63/claude-usage-monitor"
+Issues = "https://github.com/audi63/claude-usage-monitor/issues"
+Changelog = "https://github.com/audi63/claude-usage-monitor/blob/main/CHANGELOG.md"
 
 dependencies = [
     "requests>=2.31",

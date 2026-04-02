@@ -4,6 +4,16 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.0.1] — 2026-04-02
+
+### Amélioré
+- **Icône exe** : logo Claude sparkle sur fond sombre arrondi (visible dans l'explorateur et la barre des tâches)
+- **PyPI** : métadonnées enrichies (keywords, classifiers, URLs), description anglaise, visuels dans le README
+- **README** : section "Aperçu" avec 6 screenshots, section "Pourquoi ?", badge PyPI
+
+### Corrigé
+- Images du README visibles sur PyPI (URLs absolues GitHub)
+
 ## [2.0.0] — 2026-04-02
 
 ### Ajouté
