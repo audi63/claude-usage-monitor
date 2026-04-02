@@ -79,6 +79,11 @@ class Application:
         if hotkey:
             register_hotkey(hotkey, lambda: self.root.after(0, self.overlay.toggle))
 
+        # Afficher l'overlay par défaut si configuré
+        if self.config.get("always_on_top", True):
+            self.root.after(200, self.overlay.show)
+            self.tray.set_overlay_visible(True)
+
         # Lancer le polling API (thread daemon)
         poll_thread = threading.Thread(target=self._polling_loop, daemon=True)
         poll_thread.start()

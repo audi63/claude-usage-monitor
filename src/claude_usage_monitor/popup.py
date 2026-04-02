@@ -1,9 +1,8 @@
-"""Popup détaillé avec barres de progression et countdown temps réel."""
+"""Popup détaillé — design inspiré du panel 'Limites de Claude'."""
 
 from __future__ import annotations
 
 import tkinter as tk
-from typing import TYPE_CHECKING
 
 from claude_usage_monitor.api import UsageData
 from claude_usage_monitor.history import get_sparkline_data, load_history
@@ -11,30 +10,33 @@ from claude_usage_monitor.utils import (
     format_countdown,
     format_percentage,
     format_reset_date,
-    get_hex_color_for_percentage,
     time_ago,
     is_windows,
 )
 
-if TYPE_CHECKING:
-    pass
-
-# Thème sombre par défaut
-THEME = {
-    "bg": "#1e1e1e",
-    "fg": "#e0e0e0",
-    "fg_dim": "#888888",
-    "bar_bg": "#333333",
-    "border": "#444444",
-    "title_bg": "#2a2a2a",
+# Palette Claude-like (dark mode)
+C = {
+    "bg": "#1c1917",          # fond principal (très sombre chaud)
+    "card": "#292524",         # fond carte
+    "card_border": "#3d3833",  # bordure carte
+    "fg": "#e7e5e4",          # texte principal
+    "fg_secondary": "#a8a29e", # texte secondaire
+    "fg_dim": "#78716c",      # texte très dim
+    "bar_bg": "#3d3833",      # fond barre de progression
+    "bar_fill": "#5b8def",    # bleu barre (comme Claude)
+    "bar_fill_warn": "#e6a348",  # orange/jaune >50%
+    "bar_fill_danger": "#dc3c32", # rouge >80%
+    "accent": "#d97744",      # orange Claude
+    "separator": "#3d3833",   # ligne séparatrice
+    "header_bg": "#292524",   # fond header
 }
 
-POPUP_WIDTH = 340
-POPUP_HEIGHT = 310
+POPUP_WIDTH = 380
+POPUP_HEIGHT = 360
 
 
 class PopupWindow:
-    """Fenêtre popup flottante affichant les détails d'utilisation."""
+    """Fenêtre popup style 'Limites de Claude'."""
 
     def __init__(self, root: tk.Tk, on_refresh: callable) -> None:
         self._root = root
@@ -61,14 +63,12 @@ class PopupWindow:
 
         self._window = tk.Toplevel(self._root)
         self._window.overrideredirect(True)
-        self._window.configure(bg=THEME["bg"])
+        self._window.configure(bg=C["bg"])
         self._window.attributes("-topmost", True)
 
         if is_windows():
-            # Pas d'entrée dans la taskbar
             self._window.attributes("-toolwindow", True)
 
-        # Position : centre de l'écran ou près du tray
         screen_w = self._root.winfo_screenwidth()
         screen_h = self._root.winfo_screenheight()
         x = screen_w - POPUP_WIDTH - 20
@@ -78,18 +78,12 @@ class PopupWindow:
         self._build_ui()
         self._visible = True
 
-        # Fermer quand on clique ailleurs
-        self._window.bind("<FocusOut>", self._on_focus_out)
-
-        # Drag & drop
         self._window.bind("<Button-1>", self._start_drag)
         self._window.bind("<B1-Motion>", self._do_drag)
 
-        # Mettre à jour avec les données actuelles
         if self._data:
             self._update_display()
 
-        # Démarrer le countdown temps réel
         self._start_countdown()
 
     def hide(self) -> None:
@@ -109,137 +103,142 @@ class PopupWindow:
     def _build_ui(self) -> None:
         w = self._window
 
-        # Cadre principal avec bordure
-        frame = tk.Frame(w, bg=THEME["bg"], highlightbackground=THEME["border"],
-                         highlightthickness=1)
-        frame.pack(fill="both", expand=True)
+        # Cadre carte avec bordure arrondie simulée
+        outer = tk.Frame(w, bg=C["card_border"], padx=1, pady=1)
+        outer.pack(fill="both", expand=True, padx=4, pady=4)
 
-        # Titre
-        title_frame = tk.Frame(frame, bg=THEME["title_bg"], padx=10, pady=6)
-        title_frame.pack(fill="x")
-        tk.Label(
-            title_frame, text="☁ Claude Usage Monitor", font=("Segoe UI", 11, "bold"),
-            bg=THEME["title_bg"], fg=THEME["fg"],
-        ).pack(side="left")
-        # Bouton fermer
-        close_btn = tk.Label(
-            title_frame, text="✕", font=("Segoe UI", 11), cursor="hand2",
-            bg=THEME["title_bg"], fg=THEME["fg_dim"],
-        )
+        card = tk.Frame(outer, bg=C["card"])
+        card.pack(fill="both", expand=True)
+
+        # === Header ===
+        header = tk.Frame(card, bg=C["header_bg"], padx=16, pady=12)
+        header.pack(fill="x")
+
+        # Icône Claude (cercle orange)
+        icon_canvas = tk.Canvas(header, width=28, height=28, bg=C["header_bg"],
+                                highlightthickness=0)
+        icon_canvas.pack(side="left", padx=(0, 10))
+        icon_canvas.create_oval(2, 2, 26, 26, fill=C["accent"], outline="")
+        icon_canvas.create_text(14, 14, text="C", fill="white",
+                                font=("Segoe UI", 12, "bold"))
+
+        tk.Label(header, text="Limites de Claude", font=("Segoe UI", 13, "bold"),
+                 bg=C["header_bg"], fg=C["fg"]).pack(side="left")
+
+        # Bouton menu / fermer
+        close_btn = tk.Label(header, text="✕", font=("Segoe UI", 12),
+                             bg=C["header_bg"], fg=C["fg_dim"], cursor="hand2")
         close_btn.pack(side="right")
         close_btn.bind("<Button-1>", lambda e: self.hide())
 
-        # Contenu
-        content = tk.Frame(frame, bg=THEME["bg"], padx=12, pady=8)
-        content.pack(fill="both", expand=True)
+        # Séparateur
+        tk.Frame(card, bg=C["separator"], height=1).pack(fill="x")
 
-        # Session 5h
-        self._lbl_5h_title = tk.Label(
-            content, text="Session (5h)", font=("Segoe UI", 9),
-            bg=THEME["bg"], fg=THEME["fg_dim"], anchor="w",
+        # === Section Session (5h) ===
+        self._section_5h = self._build_section(
+            card, "Session actuelle", "—", "—"
         )
-        self._lbl_5h_title.pack(fill="x")
 
-        bar_frame_5h = tk.Frame(content, bg=THEME["bg"])
-        bar_frame_5h.pack(fill="x", pady=(2, 0))
-        self._canvas_5h = tk.Canvas(
-            bar_frame_5h, height=18, bg=THEME["bg"], highlightthickness=0,
-        )
-        self._canvas_5h.pack(side="left", fill="x", expand=True)
-        self._lbl_5h_pct = tk.Label(
-            bar_frame_5h, text="—", font=("Segoe UI", 10, "bold"),
-            bg=THEME["bg"], fg=THEME["fg"], width=5, anchor="e",
-        )
-        self._lbl_5h_pct.pack(side="right")
+        # Séparateur
+        tk.Frame(card, bg=C["separator"], height=1).pack(fill="x", padx=16)
 
-        self._lbl_5h_reset = tk.Label(
-            content, text="", font=("Segoe UI", 8),
-            bg=THEME["bg"], fg=THEME["fg_dim"], anchor="w",
+        # === Section Hebdo (7j) ===
+        self._section_7d = self._build_section(
+            card, "Tous les modèles", "—", "—"
         )
-        self._lbl_5h_reset.pack(fill="x", pady=(0, 8))
 
-        # Hebdo 7j
-        self._lbl_7d_title = tk.Label(
-            content, text="Hebdomadaire (7j)", font=("Segoe UI", 9),
-            bg=THEME["bg"], fg=THEME["fg_dim"], anchor="w",
-        )
-        self._lbl_7d_title.pack(fill="x")
+        # Séparateur
+        tk.Frame(card, bg=C["separator"], height=1).pack(fill="x", padx=16)
 
-        bar_frame_7d = tk.Frame(content, bg=THEME["bg"])
-        bar_frame_7d.pack(fill="x", pady=(2, 0))
-        self._canvas_7d = tk.Canvas(
-            bar_frame_7d, height=18, bg=THEME["bg"], highlightthickness=0,
-        )
-        self._canvas_7d.pack(side="left", fill="x", expand=True)
-        self._lbl_7d_pct = tk.Label(
-            bar_frame_7d, text="—", font=("Segoe UI", 10, "bold"),
-            bg=THEME["bg"], fg=THEME["fg"], width=5, anchor="e",
-        )
-        self._lbl_7d_pct.pack(side="right")
+        # === Sparkline ===
+        spark_frame = tk.Frame(card, bg=C["card"], padx=16, pady=10)
+        spark_frame.pack(fill="x")
+        tk.Label(spark_frame, text="Tendance (24h)", font=("Segoe UI", 9),
+                 bg=C["card"], fg=C["fg_dim"]).pack(anchor="w")
+        self._spark_canvas = tk.Canvas(spark_frame, height=50, bg="#252220",
+                                       highlightthickness=0)
+        self._spark_canvas.pack(fill="x", pady=(4, 0))
 
-        self._lbl_7d_reset = tk.Label(
-            content, text="", font=("Segoe UI", 8),
-            bg=THEME["bg"], fg=THEME["fg_dim"], anchor="w",
-        )
-        self._lbl_7d_reset.pack(fill="x", pady=(0, 6))
+        # === Footer ===
+        tk.Frame(card, bg=C["separator"], height=1).pack(fill="x")
+        footer = tk.Frame(card, bg=C["header_bg"], padx=16, pady=8)
+        footer.pack(fill="x")
 
-        # Sparkline historique
-        spark_label = tk.Label(
-            content, text="Historique (24h)", font=("Segoe UI", 8),
-            bg=THEME["bg"], fg=THEME["fg_dim"], anchor="w",
-        )
-        spark_label.pack(fill="x")
-        self._spark_canvas = tk.Canvas(
-            content, height=60, bg=THEME["bg"], highlightthickness=0,
-        )
-        self._spark_canvas.pack(fill="x", pady=(2, 6))
-
-        # Pied de page
-        footer = tk.Frame(frame, bg=THEME["title_bg"], padx=10, pady=4)
-        footer.pack(fill="x", side="bottom")
         self._lbl_footer = tk.Label(
             footer, text="", font=("Segoe UI", 8),
-            bg=THEME["title_bg"], fg=THEME["fg_dim"], anchor="w",
+            bg=C["header_bg"], fg=C["fg_dim"],
         )
         self._lbl_footer.pack(side="left")
 
         refresh_btn = tk.Label(
             footer, text="↻ Rafraîchir", font=("Segoe UI", 8), cursor="hand2",
-            bg=THEME["title_bg"], fg="#6ba3f7",
+            bg=C["header_bg"], fg=C["accent"],
         )
         refresh_btn.pack(side="right")
         refresh_btn.bind("<Button-1>", lambda e: self._on_refresh())
+
+    def _build_section(self, parent: tk.Frame, title: str,
+                       pct_text: str, reset_text: str) -> dict:
+        """Construit une section avec titre, pourcentage, reset, barre."""
+        frame = tk.Frame(parent, bg=C["card"], padx=16, pady=12)
+        frame.pack(fill="x")
+
+        # Ligne titre + pourcentage
+        top_row = tk.Frame(frame, bg=C["card"])
+        top_row.pack(fill="x")
+
+        lbl_title = tk.Label(top_row, text=title, font=("Segoe UI", 11, "bold"),
+                             bg=C["card"], fg=C["fg"])
+        lbl_title.pack(side="left")
+
+        lbl_pct = tk.Label(top_row, text=pct_text, font=("Segoe UI", 11),
+                           bg=C["card"], fg=C["fg_secondary"])
+        lbl_pct.pack(side="right")
+
+        # Ligne reset
+        lbl_reset = tk.Label(frame, text=reset_text, font=("Segoe UI", 9),
+                             bg=C["card"], fg=C["fg_dim"], anchor="w")
+        lbl_reset.pack(fill="x", pady=(2, 6))
+
+        # Barre de progression
+        bar_canvas = tk.Canvas(frame, height=6, bg=C["card"], highlightthickness=0)
+        bar_canvas.pack(fill="x")
+
+        return {
+            "title": lbl_title,
+            "pct": lbl_pct,
+            "reset": lbl_reset,
+            "bar": bar_canvas,
+        }
 
     def _update_display(self) -> None:
         data = self._data
         if not data or not self._window:
             return
 
-        # 5h
+        # Session 5h
         if data.five_hour:
             pct = data.five_hour.percentage
-            self._lbl_5h_pct.config(text=format_percentage(pct))
-            self._draw_bar(self._canvas_5h, pct)
+            self._section_5h["pct"].config(text=f"{pct:.0f} % utilisés")
             cd = format_countdown(data.five_hour.resets_at)
-            reset_date = format_reset_date(data.five_hour.resets_at)
-            self._lbl_5h_reset.config(text=f"↻ {cd}  •  {reset_date}")
+            self._section_5h["reset"].config(text=f"{cd} restants")
+            self._draw_bar(self._section_5h["bar"], pct)
         else:
-            self._lbl_5h_pct.config(text="—")
-            self._draw_bar(self._canvas_5h, None)
-            self._lbl_5h_reset.config(text="")
+            self._section_5h["pct"].config(text="—")
+            self._section_5h["reset"].config(text="")
+            self._draw_bar(self._section_5h["bar"], None)
 
-        # 7j
+        # Hebdo 7j
         if data.seven_day:
             pct = data.seven_day.percentage
-            self._lbl_7d_pct.config(text=format_percentage(pct))
-            self._draw_bar(self._canvas_7d, pct)
-            cd = format_countdown(data.seven_day.resets_at)
+            self._section_7d["pct"].config(text=f"{pct:.0f} % utilisés")
             reset_date = format_reset_date(data.seven_day.resets_at)
-            self._lbl_7d_reset.config(text=f"↻ {cd}  •  {reset_date}")
+            self._section_7d["reset"].config(text=f"Réinitialisation {reset_date}")
+            self._draw_bar(self._section_7d["bar"], pct)
         else:
-            self._lbl_7d_pct.config(text="—")
-            self._draw_bar(self._canvas_7d, None)
-            self._lbl_7d_reset.config(text="")
+            self._section_7d["pct"].config(text="—")
+            self._section_7d["reset"].config(text="")
+            self._draw_bar(self._section_7d["bar"], None)
 
         # Sparkline
         self._draw_sparkline()
@@ -247,124 +246,100 @@ class PopupWindow:
         # Footer
         sub = (data.subscription_type or "?").capitalize()
         ago = time_ago(data.fetched_at)
-        error_txt = f"  •  ⚠ {data.error}" if data.error else ""
-        self._lbl_footer.config(text=f"{sub}  •  MàJ {ago}{error_txt}")
+        error_txt = f"  ·  ⚠ {data.error}" if data.error else ""
+        self._lbl_footer.config(text=f"Forfait {sub}  ·  MàJ {ago}{error_txt}")
 
     def _draw_bar(self, canvas: tk.Canvas, percentage: float | None) -> None:
         canvas.update_idletasks()
         w = canvas.winfo_width()
-        h = canvas.winfo_height()
         if w < 10:
-            w = 260
+            w = 320
+        h = 6
+        canvas.config(height=h)
         canvas.delete("all")
 
-        # Fond
-        canvas.create_rectangle(0, 2, w, h - 2, fill=THEME["bar_bg"], outline="")
+        # Fond arrondi
+        canvas.create_rectangle(0, 0, w, h, fill=C["bar_bg"], outline="")
 
         if percentage is not None and percentage > 0:
             fill_w = max(3, int(w * min(percentage, 100) / 100))
-            color = get_hex_color_for_percentage(percentage)
-            canvas.create_rectangle(0, 2, fill_w, h - 2, fill=color, outline="")
+            # Couleur selon niveau
+            if percentage >= 80:
+                color = C["bar_fill_danger"]
+            elif percentage >= 50:
+                color = C["bar_fill_warn"]
+            else:
+                color = C["bar_fill"]
+            canvas.create_rectangle(0, 0, fill_w, h, fill=color, outline="")
 
     def _draw_sparkline(self) -> None:
-        """Dessine le mini-graphique de tendance sur 24h."""
         canvas = self._spark_canvas
         canvas.update_idletasks()
         w = canvas.winfo_width()
         h = canvas.winfo_height()
         if w < 20:
-            w = 300
+            w = 320
         if h < 20:
-            h = 60
+            h = 50
         canvas.delete("all")
-
-        # Fond
-        canvas.create_rectangle(0, 0, w, h, fill="#252525", outline="")
-
-        # Lignes de grille horizontales (25%, 50%, 75%)
-        for pct in (25, 50, 75):
-            y = h - (pct / 100 * h)
-            canvas.create_line(0, y, w, y, fill="#333333", dash=(2, 4))
 
         entries = load_history()
         if not entries:
-            canvas.create_text(
-                w / 2, h / 2, text="Pas encore de données",
-                fill=THEME["fg_dim"], font=("Segoe UI", 8),
-            )
+            canvas.create_text(w / 2, h / 2, text="Pas encore de données",
+                               fill=C["fg_dim"], font=("Segoe UI", 8))
             return
 
-        # Dessiner les deux courbes
-        self._draw_spark_line(canvas, entries, "five_hour_pct", "#2196f3", w, h)
-        self._draw_spark_line(canvas, entries, "seven_day_pct", "#ff9800", w, h)
+        # Lignes de grille
+        for pct in (25, 50, 75):
+            y = h - (pct / 100 * h)
+            canvas.create_line(0, y, w, y, fill="#332e2b", dash=(2, 4))
+
+        # Courbes
+        self._draw_spark_line(canvas, entries, "five_hour_pct", C["bar_fill"], w, h)
+        self._draw_spark_line(canvas, entries, "seven_day_pct", C["accent"], w, h)
 
         # Légende
-        canvas.create_rectangle(4, 4, 12, 10, fill="#2196f3", outline="")
-        canvas.create_text(15, 7, text="5h", anchor="w", fill="#2196f3", font=("Segoe UI", 7))
-        canvas.create_rectangle(38, 4, 46, 10, fill="#ff9800", outline="")
-        canvas.create_text(49, 7, text="7j", anchor="w", fill="#ff9800", font=("Segoe UI", 7))
+        canvas.create_rectangle(4, 3, 14, 9, fill=C["bar_fill"], outline="")
+        canvas.create_text(17, 6, text="5h", anchor="w", fill=C["bar_fill"],
+                           font=("Segoe UI", 7))
+        canvas.create_rectangle(42, 3, 52, 9, fill=C["accent"], outline="")
+        canvas.create_text(55, 6, text="7j", anchor="w", fill=C["accent"],
+                           font=("Segoe UI", 7))
 
-    def _draw_spark_line(
-        self, canvas: tk.Canvas, entries: list, key: str,
-        color: str, w: int, h: int,
-    ) -> None:
+    def _draw_spark_line(self, canvas: tk.Canvas, entries: list, key: str,
+                         color: str, w: int, h: int) -> None:
         points = get_sparkline_data(entries, key, hours=24)
         if len(points) < 2:
             return
-
         margin = 2
-        t_min = points[0][0]
-        t_max = points[-1][0]
+        t_min, t_max = points[0][0], points[-1][0]
         t_range = t_max - t_min
         if t_range <= 0:
             return
-
         coords = []
         for ts, val in points:
             x = margin + (ts - t_min) / t_range * (w - 2 * margin)
             y = h - margin - (min(val, 100) / 100 * (h - 2 * margin))
             coords.extend([x, y])
-
         if len(coords) >= 4:
             canvas.create_line(*coords, fill=color, width=1.5, smooth=True)
 
     def _start_countdown(self) -> None:
-        """Met à jour les countdowns chaque seconde."""
         if not self._visible or not self._window:
             return
-
         if self._data:
-            # Rafraîchir uniquement les labels de countdown
             if self._data.five_hour:
                 cd = format_countdown(self._data.five_hour.resets_at)
-                reset_date = format_reset_date(self._data.five_hour.resets_at)
-                self._lbl_5h_reset.config(text=f"↻ {cd}  •  {reset_date}")
+                self._section_5h["reset"].config(text=f"{cd} restants")
             if self._data.seven_day:
-                cd = format_countdown(self._data.seven_day.resets_at)
                 reset_date = format_reset_date(self._data.seven_day.resets_at)
-                self._lbl_7d_reset.config(text=f"↻ {cd}  •  {reset_date}")
-
-            # Mettre à jour le "il y a Xs"
+                self._section_7d["reset"].config(
+                    text=f"Réinitialisation {reset_date}"
+                )
             sub = (self._data.subscription_type or "?").capitalize()
             ago = time_ago(self._data.fetched_at)
-            self._lbl_footer.config(text=f"{sub}  •  MàJ {ago}")
-
+            self._lbl_footer.config(text=f"Forfait {sub}  ·  MàJ {ago}")
         self._countdown_job = self._root.after(1000, self._start_countdown)
-
-    def _on_focus_out(self, event: tk.Event) -> None:
-        # Ne pas fermer si le focus va vers un widget enfant
-        if event.widget == self._window:
-            self._root.after(100, self._check_focus)
-
-    def _check_focus(self) -> None:
-        if not self._window:
-            return
-        try:
-            focused = self._root.focus_get()
-            if focused is None or not str(focused).startswith(str(self._window)):
-                pass  # On ne ferme pas automatiquement pour l'instant
-        except Exception:
-            pass
 
     def _start_drag(self, event: tk.Event) -> None:
         self._drag_data["x"] = event.x

@@ -1,96 +1,75 @@
-"""Génération dynamique des icônes pour le tray."""
+"""Génération dynamique des icônes tray — style Claude (orange)."""
 
 from __future__ import annotations
 
-from PIL import Image, ImageDraw, ImageFont
+import math
 
-from claude_usage_monitor.utils import get_color_for_percentage
+from PIL import Image, ImageDraw, ImageFont
 
 ICON_SIZE = 64
 
+# Couleurs Claude
+CLAUDE_ORANGE = (217, 119, 68)       # #D97744 — orange signature Claude
+CLAUDE_ORANGE_LIGHT = (232, 155, 107)  # version claire
+CLAUDE_BG = (28, 25, 23)             # fond sombre
+ARC_BG = (60, 55, 50)               # fond de l'arc
+
 
 def generate_icon(percentage: float | None = None) -> Image.Image:
-    """Génère une icône 64x64 avec un cercle coloré et le pourcentage centré.
+    """Génère une icône 64x64 style Claude : fond sombre, arc orange, pourcentage.
 
     Args:
-        percentage: 0-100, ou None pour l'état erreur/inconnu (gris).
+        percentage: 0-100, ou None pour l'état erreur/inconnu.
     """
     img = Image.new("RGBA", (ICON_SIZE, ICON_SIZE), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    color = get_color_for_percentage(percentage)
-
-    # Cercle de fond
-    margin = 2
+    # Fond circulaire sombre
+    margin = 1
     draw.ellipse(
         [margin, margin, ICON_SIZE - margin, ICON_SIZE - margin],
-        fill=(*color, 230),
-        outline=(*color, 255),
-        width=2,
+        fill=(*CLAUDE_BG, 240),
     )
 
-    # Texte du pourcentage
+    # Arc de fond (gris)
+    arc_margin = 5
+    arc_bbox = [arc_margin, arc_margin, ICON_SIZE - arc_margin, ICON_SIZE - arc_margin]
+    draw.arc(arc_bbox, start=0, end=360, fill=(*ARC_BG, 200), width=5)
+
+    # Arc de progression (orange Claude)
+    if percentage is not None and percentage > 0:
+        # L'arc commence en haut (-90°) et va dans le sens horaire
+        sweep = min(percentage, 100) / 100 * 360
+        start_angle = -90
+        end_angle = start_angle + sweep
+
+        # Couleur selon le niveau
+        if percentage >= 80:
+            arc_color = (220, 60, 50, 255)  # Rouge
+        elif percentage >= 50:
+            arc_color = (232, 175, 60, 255)  # Jaune-orange
+        else:
+            arc_color = (*CLAUDE_ORANGE, 255)  # Orange Claude
+
+        draw.arc(arc_bbox, start=start_angle, end=end_angle, fill=arc_color, width=5)
+
+    # Texte du pourcentage au centre
     text = f"{percentage:.0f}" if percentage is not None else "?"
-    # Utiliser la font par défaut (toujours disponible)
     try:
-        font = ImageFont.truetype("arial.ttf", 24 if len(text) <= 2 else 20)
+        size = 22 if len(text) <= 2 else 17
+        font = ImageFont.truetype("arial.ttf", size)
     except OSError:
         try:
-            font = ImageFont.truetype("DejaVuSans.ttf", 24 if len(text) <= 2 else 20)
+            font = ImageFont.truetype("DejaVuSans-Bold.ttf", size)
         except OSError:
             font = ImageFont.load_default()
 
-    # Centrer le texte
     bbox = draw.textbbox((0, 0), text, font=font)
     text_w = bbox[2] - bbox[0]
     text_h = bbox[3] - bbox[1]
     x = (ICON_SIZE - text_w) / 2
-    y = (ICON_SIZE - text_h) / 2 - 2
+    y = (ICON_SIZE - text_h) / 2 - 1
 
-    draw.text((x, y), text, fill=(255, 255, 255, 255), font=font)
-
-    return img
-
-
-def generate_bar_icon(pct_5h: float | None, pct_7d: float | None) -> Image.Image:
-    """Génère une icône avec deux mini-barres de progression (5h et 7j)."""
-    img = Image.new("RGBA", (ICON_SIZE, ICON_SIZE), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-
-    # Fond arrondi sombre
-    draw.rounded_rectangle(
-        [2, 2, ICON_SIZE - 2, ICON_SIZE - 2],
-        radius=10,
-        fill=(30, 30, 30, 220),
-    )
-
-    # Barre 5h (haut)
-    _draw_mini_bar(draw, y=14, percentage=pct_5h)
-
-    # Barre 7j (bas)
-    _draw_mini_bar(draw, y=38, percentage=pct_7d)
+    draw.text((x, y), text, fill=(235, 235, 230, 255), font=font)
 
     return img
-
-
-def _draw_mini_bar(draw: ImageDraw.ImageDraw, y: int, percentage: float | None) -> None:
-    """Dessine une mini barre de progression horizontale."""
-    bar_x = 8
-    bar_w = ICON_SIZE - 16
-    bar_h = 10
-
-    # Fond de la barre
-    draw.rounded_rectangle(
-        [bar_x, y, bar_x + bar_w, y + bar_h],
-        radius=3,
-        fill=(60, 60, 60, 200),
-    )
-
-    if percentage is not None and percentage > 0:
-        fill_w = max(3, int(bar_w * min(percentage, 100) / 100))
-        color = get_color_for_percentage(percentage)
-        draw.rounded_rectangle(
-            [bar_x, y, bar_x + fill_w, y + bar_h],
-            radius=3,
-            fill=(*color, 230),
-        )

@@ -1,0 +1,10 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "claude-usage-monitor",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "claude-usage-monitor"]
+    }
+  ]
+}
