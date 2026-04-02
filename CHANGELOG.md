@@ -4,6 +4,33 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.0.0] — 2026-04-02
+
+### Ajouté
+- **Mode mini** : overlay 64×36px avec icône Claude (sparkle) + pourcentage blanc
+- **Vue étendue au survol** : le widget s'agrandit (260px) pour afficher barres, countdowns, estimation et sparkline 6h
+- **Son d'alerte** : bip sonore à 95% d'utilisation (configurable, activable/désactivable)
+- **Estimation temps restant** : calcul du temps avant d'atteindre 100% basé sur la tendance 2h
+- **Auto-update** : vérifie les nouvelles versions sur GitHub au démarrage
+- **Autostart Windows** : raccourci dans le dossier Startup (toggle dans le menu tray)
+- **Icône Claude** : logo sparkle officiel en PNG dans le mode mini (remplace le "C" orange)
+
+### Amélioré
+- **Overlay sans bordure noire** : fond solide au lieu de chroma key, arrondis via Win32 `CreateRoundRectRgn`
+- **Drag & drop en vue étendue** : le widget est déplaçable même au survol (collapse au relâchement)
+- **429 silencieux** : les erreurs rate-limit ne remplacent plus les données valides (aucun message "Trop de requêtes")
+- **Lecture credentials robuste** : retry 3× avec délai en cas de fichier verrouillé par Claude Code
+- **Token expiré** : re-lecture automatique du fichier credentials (Claude Code le rafraîchit)
+- **Sparkline popup** : légende 5h/7j centrée en haut, durée "24h" en haut à droite, axe Y avec 0%/50%/100%
+- **Sparkline overlay** : même format avec légende centrée et "6h" en haut à droite
+- **README** : documentation des interactions (survol, double-clic, drag)
+
+### Corrigé
+- Double fetch au démarrage causant un 429
+- Boucle de retry rapide (15s) déclenchée par les 429 (maintenant ignorés)
+- Couleurs orange/jaune non demandées → remplacées par gris (#a8a29e)
+- Perte du drag quand l'overlay passait en mode expanded
+
 ## [1.1.0] — 2026-04-02
 
 ### Ajouté

@@ -68,16 +68,28 @@ class ApiClient:
         self._min_interval: float = 30  # secondes min entre appels auto
 
     def _read_credentials(self) -> dict | None:
-        """Lit le fichier credentials Claude Code."""
+        """Lit le fichier credentials Claude Code avec retry.
+
+        Le fichier peut être temporairement verrouillé ou en cours d'écriture
+        par Claude Code/Desktop — on retente 3 fois avec un court délai.
+        """
         path = get_credentials_path()
         if not path.exists():
             return None
-        try:
-            with open(path, encoding="utf-8") as f:
-                return json.load(f)
-        except (json.JSONDecodeError, OSError) as e:
-            logger.error("Erreur lecture credentials: %s", e)
-            return None
+        for attempt in range(3):
+            try:
+                with open(path, encoding="utf-8") as f:
+                    data = json.load(f)
+                # Vérifier que c'est bien un dict valide avec les clés attendues
+                if isinstance(data, dict) and "claudeAiOauth" in data:
+                    return data
+                logger.warning("Credentials: format inattendu (tentative %d)", attempt + 1)
+            except (json.JSONDecodeError, OSError) as e:
+                logger.warning("Lecture credentials tentative %d: %s", attempt + 1, e)
+            if attempt < 2:
+                time.sleep(0.3)
+        logger.error("Impossible de lire les credentials après 3 tentatives")
+        return None
 
     def _is_token_expired(self, creds: dict) -> bool:
         """Vérifie si le token OAuth est expiré."""
@@ -146,7 +158,7 @@ class ApiClient:
         except OSError as e:
             logger.error("Erreur écriture credentials: %s", e)
 
-    def fetch_usage(self, force: bool = False) -> UsageData:
+    def fetch_usage(self, force: bool = False) -> UsageData | None:
         """Récupère les données d'utilisation depuis l'API.
 
         Args:
@@ -159,7 +171,7 @@ class ApiClient:
         if not force and self._last_success:
             elapsed = time.time() - self._last_fetch
             if elapsed < self._min_interval and self._last_fetch > 0:
-                return UsageData(error=t("rate_limited"))
+                return None  # Pas de nouvelles données, garder les existantes
 
         try:
             # Lire les credentials
@@ -207,12 +219,10 @@ class ApiClient:
 
             if resp.status_code == 429:
                 # 429 = API fonctionne mais on appelle trop souvent
-                # On garde _last_success = True pour ne pas passer en mode retry rapide
+                # Silencieux — on garde les données existantes en cache
                 self._last_success = True
-                return UsageData(
-                    error=t("rate_limited"),
-                    subscription_type=sub_type,
-                )
+                logger.debug("429 rate limited — données en cache conservées")
+                return None
 
             resp.raise_for_status()
             data = resp.json()

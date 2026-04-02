@@ -77,9 +77,9 @@ uv run claude-usage-monitor
 
 - **Clic droit** sur le tray icon → menu contextuel (rafraîchir, overlay, quitter…)
 - **Clic gauche** sur le tray icon → popup détaillé
-- **Survol** du widget overlay → tooltip avec countdown avant reset
-- **Double-clic** sur le widget overlay → popup détaillé
-- **Glisser-déposer** le widget overlay → repositionner (position sauvegardée)
+- **Survol** du widget overlay → vue étendue avec barres, countdowns, estimation et sparkline 6h
+- **Double-clic** sur le widget overlay → popup complet avec sparkline 24h et infos abonnement
+- **Glisser-déposer** le widget overlay → repositionner (fonctionne aussi en vue étendue)
 - **Ctrl+Shift+U** → afficher/masquer le widget overlay
 
 ## Configuration

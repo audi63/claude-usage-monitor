@@ -12,6 +12,7 @@ import pystray
 from pystray import MenuItem as Item
 
 from claude_usage_monitor.api import UsageData
+from claude_usage_monitor.autostart import is_autostart_enabled, enable_autostart, disable_autostart
 from claude_usage_monitor.i18n import t
 from claude_usage_monitor.icon_generator import generate_icon
 from claude_usage_monitor.utils import (
@@ -35,12 +36,15 @@ class TrayManager:
         on_toggle_popup: Callable[[], None],
         on_quit: Callable[[], None],
         on_toggle_overlay: Callable[[bool], None] | None = None,
+        on_toggle_mini: Callable[[], None] | None = None,
     ) -> None:
         self._on_refresh = on_refresh
         self._on_toggle_popup = on_toggle_popup
         self._on_quit = on_quit
         self._on_toggle_overlay = on_toggle_overlay
+        self._on_toggle_mini = on_toggle_mini
         self._overlay_visible = False
+        self._autostart_enabled = is_autostart_enabled()
         self._current_data: UsageData | None = None
         self._stopped = False
 
@@ -60,11 +64,21 @@ class TrayManager:
                 self._handle_toggle_overlay,
                 checked=lambda _: self._overlay_visible,
             ),
+            Item(
+                "Mode mini",
+                self._handle_toggle_mini,
+            ),
+            pystray.Menu.SEPARATOR,
+            Item(
+                "Démarrage auto",
+                self._handle_toggle_autostart,
+                checked=lambda _: self._autostart_enabled,
+            ),
             pystray.Menu.SEPARATOR,
             Item(t("open_claude"), self._handle_open_claude),
             Item(t("open_settings"), self._handle_open_settings),
             pystray.Menu.SEPARATOR,
-            Item("Claude Usage Monitor v1.1.0", self._handle_about),
+            Item("Claude Usage Monitor v2.0.0", self._handle_about),
             pystray.Menu.SEPARATOR,
             Item(t("quit"), self._handle_quit),
         )
@@ -81,6 +95,22 @@ class TrayManager:
         self._overlay_visible = not self._overlay_visible
         if self._on_toggle_overlay:
             self._on_toggle_overlay(self._overlay_visible)
+
+    def _handle_toggle_mini(
+        self, icon: pystray.Icon = None, item: Item = None
+    ) -> None:
+        if self._on_toggle_mini:
+            self._on_toggle_mini()
+
+    def _handle_toggle_autostart(
+        self, icon: pystray.Icon = None, item: Item = None
+    ) -> None:
+        if self._autostart_enabled:
+            disable_autostart()
+            self._autostart_enabled = False
+        else:
+            enable_autostart()
+            self._autostart_enabled = True
 
     def _handle_open_claude(
         self, icon: pystray.Icon = None, item: Item = None

@@ -20,6 +20,7 @@ from claude_usage_monitor.notifications import NotificationManager
 from claude_usage_monitor.overlay import OverlayWidget
 from claude_usage_monitor.popup import PopupWindow
 from claude_usage_monitor.tray import TrayManager
+from claude_usage_monitor.updater import check_for_update
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,7 @@ class Application:
             on_toggle_popup=self._toggle_popup,
             on_quit=self._quit,
             on_toggle_overlay=self._toggle_overlay,
+            on_toggle_mini=lambda: self.root.after(0, self.overlay.toggle_mini),
         )
 
         # Notifications système
@@ -86,6 +88,9 @@ class Application:
         if self.config.get("always_on_top", True):
             self.root.after(200, self.overlay.show)
             self.tray.set_overlay_visible(True)
+
+        # Vérifier les mises à jour
+        check_for_update(notify_fn=self.tray.notify)
 
         # Lancer le polling API (thread daemon)
         poll_thread = threading.Thread(target=self._polling_loop, daemon=True)
@@ -128,6 +133,8 @@ class Application:
     def _do_fetch(self, force: bool = False) -> None:
         """Effectue un appel API et met à jour l'UI."""
         data = self.api_client.fetch_usage(force=force)
+        if data is None:
+            return  # Rate limit client — rien à faire, on garde les données existantes
         if not data.error:
             save_cache(data)
             save_history(data, self.config.get("history_retention_days", 7))
@@ -137,10 +144,12 @@ class Application:
 
     def _on_data_received(self, data: UsageData) -> None:
         """Callback appelé dans le thread principal après réception des données."""
-        if data.error and not data.is_disconnected and self.current_data and not self.current_data.error:
-            # Erreur temporaire (429) : garder les données existantes, juste logger
-            logger.warning("Erreur API temporaire: %s", data.error)
-            return
+        # Erreur temporaire (429) : garder les données existantes si on a des % valides
+        if data.error and not data.is_disconnected and self.current_data:
+            has_valid = self.current_data.five_hour or self.current_data.seven_day
+            if has_valid:
+                logger.warning("Erreur API temporaire: %s", data.error)
+                return
 
         self.current_data = data
         self.tray.update(data)
@@ -198,12 +207,50 @@ class Application:
         os._exit(0)
 
 
+def _acquire_single_instance() -> bool:
+    """Empêche le lancement de plusieurs instances simultanées.
+
+    Retourne True si cette instance est la seule, False sinon.
+    """
+    import platform
+
+    if platform.system() == "Windows":
+        try:
+            import ctypes
+            _mutex = ctypes.windll.kernel32.CreateMutexW(None, True, "ClaudeUsageMonitor_SingleInstance")
+            if ctypes.windll.kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+                return False
+            # Garder le mutex vivant en l'attachant au module
+            _acquire_single_instance._mutex = _mutex  # type: ignore[attr-defined]
+            return True
+        except Exception:
+            return True  # En cas d'erreur, on laisse lancer
+    else:
+        # Linux/Mac : fichier lock
+        import fcntl
+        from pathlib import Path
+
+        lock_path = Path.home() / ".claude-usage-monitor.lock"
+        try:
+            lock_file = open(lock_path, "w")  # noqa: SIM115
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            _acquire_single_instance._lock_file = lock_file  # type: ignore[attr-defined]
+            return True
+        except (OSError, IOError):
+            return False
+
+
 def main() -> None:
     """Point d'entrée CLI."""
     # Gérer --version
     if "--version" in sys.argv:
         print(f"claude-usage-monitor {__version__}")
         return
+
+    # Single instance
+    if not _acquire_single_instance():
+        print("Claude Usage Monitor est déjà en cours d'exécution.")
+        sys.exit(0)
 
     # Logging
     logging.basicConfig(

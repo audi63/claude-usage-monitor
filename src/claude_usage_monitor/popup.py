@@ -153,11 +153,9 @@ class PopupWindow:
         # === Sparkline ===
         spark_frame = tk.Frame(card, bg=C["card"], padx=16, pady=10)
         spark_frame.pack(fill="x")
-        tk.Label(spark_frame, text="Tendance (24h)", font=("Segoe UI", 9),
-                 bg=C["card"], fg=C["fg_dim"]).pack(anchor="w")
-        self._spark_canvas = tk.Canvas(spark_frame, height=50, bg="#252220",
+        self._spark_canvas = tk.Canvas(spark_frame, height=70, bg="#252220",
                                        highlightthickness=0)
-        self._spark_canvas.pack(fill="x", pady=(4, 0))
+        self._spark_canvas.pack(fill="x")
 
         # === Footer ===
         tk.Frame(card, bg=C["separator"], height=1).pack(fill="x")
@@ -289,37 +287,53 @@ class PopupWindow:
                                fill=C["fg_dim"], font=("Segoe UI", 8))
             return
 
-        # Lignes de grille
-        for pct in (25, 50, 75):
-            y = h - (pct / 100 * h)
-            canvas.create_line(0, y, w, y, fill="#332e2b", dash=(2, 4))
+        margin_left = 30
+        header_h = 16
+        chart_w = w - margin_left
+        chart_h = h - header_h
+
+        # Légende centrée en haut
+        cx = w // 2
+        canvas.create_rectangle(cx - 40, 4, cx - 28, 10,
+                                fill=C["bar_fill"], outline="")
+        canvas.create_text(cx - 24, 7, text="5h", anchor="w",
+                           fill="#a8a29e", font=("Segoe UI", 7))
+        canvas.create_rectangle(cx + 4, 4, cx + 16, 10,
+                                fill=C["accent"], outline="")
+        canvas.create_text(cx + 20, 7, text="7j", anchor="w",
+                           fill="#a8a29e", font=("Segoe UI", 7))
+        # Durée en haut à droite
+        canvas.create_text(w - 2, 7, text="24h", anchor="e",
+                           fill="#57534e", font=("Segoe UI", 7))
+
+        # Axe Y : 0%, 50%, 100%
+        for pct in (0, 50, 100):
+            y = header_h + chart_h - (pct / 100 * chart_h)
+            canvas.create_text(margin_left - 4, y, text=f"{pct}%", anchor="e",
+                               fill="#57534e", font=("Segoe UI", 7))
+            canvas.create_line(margin_left, y, w, y, fill="#332e2b", dash=(2, 4))
 
         # Courbes
-        self._draw_spark_line(canvas, entries, "five_hour_pct", C["bar_fill"], w, h)
-        self._draw_spark_line(canvas, entries, "seven_day_pct", C["accent"], w, h)
-
-        # Légende
-        canvas.create_rectangle(4, 3, 14, 9, fill=C["bar_fill"], outline="")
-        canvas.create_text(17, 6, text="5h", anchor="w", fill=C["bar_fill"],
-                           font=("Segoe UI", 7))
-        canvas.create_rectangle(42, 3, 52, 9, fill=C["accent"], outline="")
-        canvas.create_text(55, 6, text="7j", anchor="w", fill=C["accent"],
-                           font=("Segoe UI", 7))
+        self._draw_spark_line(canvas, entries, "five_hour_pct", C["bar_fill"],
+                              w, h, margin_left, header_h, chart_w, chart_h)
+        self._draw_spark_line(canvas, entries, "seven_day_pct", C["accent"],
+                              w, h, margin_left, header_h, chart_w, chart_h)
 
     def _draw_spark_line(self, canvas: tk.Canvas, entries: list, key: str,
-                         color: str, w: int, h: int) -> None:
+                         color: str, w: int, h: int,
+                         margin_left: int = 0, header_h: int = 0,
+                         chart_w: int = 0, chart_h: int = 0) -> None:
         points = get_sparkline_data(entries, key, hours=24)
         if len(points) < 2:
             return
-        margin = 2
         t_min, t_max = points[0][0], points[-1][0]
         t_range = t_max - t_min
         if t_range <= 0:
             return
         coords = []
         for ts, val in points:
-            x = margin + (ts - t_min) / t_range * (w - 2 * margin)
-            y = h - margin - (min(val, 100) / 100 * (h - 2 * margin))
+            x = margin_left + (ts - t_min) / t_range * chart_w
+            y = header_h + chart_h - (min(val, 100) / 100 * chart_h)
             coords.extend([x, y])
         if len(coords) >= 4:
             canvas.create_line(*coords, fill=color, width=1.5, smooth=True)

@@ -26,6 +26,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "theme": "dark",
     "hotkey_toggle": "ctrl+shift+u",
     "history_retention_days": 7,
+    "overlay_mini_mode": False,
+    "sound_alert_enabled": True,
+    "sound_alert_threshold": 95,
 }
 
 

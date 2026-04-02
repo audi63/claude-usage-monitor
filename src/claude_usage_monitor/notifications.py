@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from claude_usage_monitor.api import UsageData
+from claude_usage_monitor.sounds import play_alert
 
 logger = logging.getLogger(__name__)
 
@@ -85,26 +86,35 @@ class NotificationManager:
 
         state.last_resets_at = resets_at
 
+        # Seuil pour le son d'alerte (configurable, défaut 95)
+        sound_threshold = self._config.get("sound_alert_threshold", 95)
+
         # Vérifier chaque seuil
         for threshold in sorted(thresholds):
             if percentage >= threshold and threshold not in state.notified_thresholds:
                 state.notified_thresholds.add(threshold)
                 state.was_above_threshold = True
+                is_critical = threshold >= sound_threshold
 
                 if threshold >= 95:
                     self._send(
                         "Limite presque atteinte !",
                         f"{name} : {percentage:.0f}% utilisé — limite presque atteinte",
+                        critical=is_critical,
                     )
                 else:
                     self._send(
                         f"Utilisation à {threshold}%",
                         f"{name} : {percentage:.0f}% du quota utilisé",
+                        critical=is_critical,
                     )
 
-    def _send(self, title: str, message: str) -> None:
+    def _send(self, title: str, message: str, critical: bool = False) -> None:
         logger.info("Notification: %s — %s", title, message)
         try:
             self._notify(title, message)
         except Exception as e:
             logger.warning("Erreur envoi notification: %s", e)
+        # Son d'alerte si activé et seuil critique
+        if critical and self._config.get("sound_alert_enabled", True):
+            play_alert()
