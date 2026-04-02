@@ -24,12 +24,18 @@ USAGE_API_URL = "https://api.anthropic.com/api/oauth/usage"
 class UsageWindow:
     """Fenêtre d'utilisation (5h ou 7j)."""
 
-    utilization: float  # 0.0 à 1.0
+    utilization: float  # Valeur brute de l'API (peut être 0.0-1.0 ou 0-100)
     resets_at: str  # ISO 8601
 
     @property
     def percentage(self) -> float:
-        """Pourcentage d'utilisation (0-100)."""
+        """Pourcentage d'utilisation (0-100).
+
+        L'API peut retourner soit un ratio (0.0-1.0) soit un pourcentage (0-100).
+        On détecte automatiquement : si > 1.0, c'est déjà un pourcentage.
+        """
+        if self.utilization > 1.0:
+            return self.utilization
         return self.utilization * 100
 
 
