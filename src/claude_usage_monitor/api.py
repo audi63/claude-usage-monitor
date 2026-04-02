@@ -65,7 +65,8 @@ class ApiClient:
     def __init__(self) -> None:
         self._last_fetch: float = 0
         self._last_success: bool = True  # bypass rate limit après erreur
-        self._min_interval: float = 30  # secondes min entre appels auto
+        self._min_interval: float = 60  # secondes min entre appels auto
+        self._consecutive_429: int = 0  # compteur de 429 consécutifs pour backoff
 
     def _read_credentials(self) -> dict | None:
         """Lit le fichier credentials Claude Code avec retry.
@@ -219,9 +220,16 @@ class ApiClient:
 
             if resp.status_code == 429:
                 # 429 = API fonctionne mais on appelle trop souvent
-                # Silencieux — on garde les données existantes en cache
                 self._last_success = True
-                logger.debug("429 rate limited — données en cache conservées")
+                self._last_fetch = time.time()
+                self._consecutive_429 += 1
+                # Backoff exponentiel : 60s, 120s, 240s, max 300s
+                backoff = min(60 * (2 ** (self._consecutive_429 - 1)), 300)
+                self._min_interval = backoff
+                logger.info("429 rate limited (x%d) — prochain essai dans %ds",
+                            self._consecutive_429, backoff)
+                if force:
+                    return UsageData(error=t("rate_limited"), subscription_type=sub_type)
                 return None
 
             resp.raise_for_status()
@@ -245,6 +253,8 @@ class ApiClient:
                 )
 
             self._last_success = True
+            self._consecutive_429 = 0
+            self._min_interval = 60  # Reset au minimum normal
             return result
 
         except requests.ConnectionError:
