@@ -4,6 +4,11 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.0.9] — 2026-04-03
+
+### Corrigé
+- **Processus zombie après "Quitter" (fix définitif)** : les API Win32 internes ne tuaient pas l'arbre complet PyInstaller. Nouvelle approche : un script batch externe détaché (`cmd.exe /c`) attend 1s puis `taskkill /F /IM claude-usage-monitor.exe` en 2 passes, puis s'auto-supprime.
+
 ## [2.0.8] — 2026-04-03
 
 ### Corrigé

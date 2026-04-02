@@ -203,67 +203,48 @@ class Application:
 
     @staticmethod
     def _force_kill_self() -> None:
-        """Tue le processus courant ET le bootloader parent (PyInstaller).
+        """Tue TOUS les processus claude-usage-monitor via un script externe.
 
-        PyInstaller --onefile crée :
-          bootloader.exe (parent) → python process (enfant)
-        Il faut tuer les deux. On utilise l'API Win32 pour remonter au parent
-        et tuer toute la chaîne.
+        PyInstaller --onefile crée un arbre complexe (bootloader + enfants).
+        Aucune API interne (os._exit, TerminateProcess) ne tue l'arbre entier
+        de façon fiable. Solution : lancer un script batch DÉTACHÉ qui attend
+        1s puis tue tous les processus par nom d'image.
         """
         import platform
-        if platform.system() != "Windows":
-            os._exit(0)
-            return
-
-        try:
-            import ctypes
-            import ctypes.wintypes
-
-            kernel32 = ctypes.windll.kernel32
-            ntdll = ctypes.windll.ntdll
-
-            # Structure pour NtQueryInformationProcess
-            class PROCESS_BASIC_INFORMATION(ctypes.Structure):
-                _fields_ = [
-                    ("Reserved1", ctypes.c_void_p),
-                    ("PebBaseAddress", ctypes.c_void_p),
-                    ("Reserved2", ctypes.c_void_p * 2),
-                    ("UniqueProcessId", ctypes.c_ulong),
-                    ("InheritedFromUniqueProcessId", ctypes.c_ulong),
-                ]
-
-            # Trouver le PID du parent (bootloader PyInstaller)
-            current_pid = os.getpid()
-            parent_pid = None
+        if platform.system() == "Windows":
             try:
-                handle = kernel32.OpenProcess(0x0400, False, current_pid)  # PROCESS_QUERY_INFORMATION
-                if handle:
-                    pbi = PROCESS_BASIC_INFORMATION()
-                    status = ntdll.NtQueryInformationProcess(
-                        handle, 0, ctypes.byref(pbi), ctypes.sizeof(pbi), None
-                    )
-                    if status == 0:
-                        parent_pid = pbi.InheritedFromUniqueProcessId
-                    kernel32.CloseHandle(handle)
-            except Exception:
-                pass
+                import subprocess
+                import tempfile
 
-            # Tuer le parent (bootloader) s'il existe et est différent de nous
-            if parent_pid and parent_pid != current_pid:
-                try:
-                    parent_handle = kernel32.OpenProcess(0x0001, False, parent_pid)  # PROCESS_TERMINATE
-                    if parent_handle:
-                        kernel32.TerminateProcess(parent_handle, 0)
-                        kernel32.CloseHandle(parent_handle)
-                except Exception:
-                    pass
+                exe_name = "claude-usage-monitor.exe"
+                # Script batch : attend 1s, tue tout, se supprime lui-même
+                bat_content = (
+                    "@echo off\n"
+                    "ping -n 2 127.0.0.1 >nul\n"  # attente ~1s (plus fiable que timeout)
+                    f"taskkill /F /IM {exe_name} >nul 2>&1\n"
+                    "ping -n 2 127.0.0.1 >nul\n"  # 2e attente
+                    f"taskkill /F /IM {exe_name} >nul 2>&1\n"  # 2e passage pour les récalcitrants
+                    'del "%~f0" >nul 2>&1\n'  # auto-suppression du .bat
+                )
 
-            # Tuer notre propre processus
-            handle = kernel32.GetCurrentProcess()
-            kernel32.TerminateProcess(handle, 0)
+                bat_fd, bat_path = tempfile.mkstemp(suffix=".bat", prefix="_cum_quit_")
+                with os.fdopen(bat_fd, "w") as f:
+                    f.write(bat_content)
 
-        except Exception:
-            os._exit(0)
+                # Lancer le .bat dans un processus COMPLÈTEMENT détaché
+                CREATE_NO_WINDOW = 0x08000000
+                subprocess.Popen(
+                    ["cmd.exe", "/c", bat_path],
+                    creationflags=CREATE_NO_WINDOW,
+                    close_fds=True,
+                    start_new_session=True,
+                )
+                logger.info("Script de nettoyage lancé : %s", bat_path)
+            except Exception as e:
+                logger.error("Erreur lancement script quit : %s", e)
+
+        # Sortir immédiatement (le .bat tuera les restes)
+        os._exit(0)
 
     def _toggle_overlay(self, visible: bool) -> None:
         """Toggle le widget overlay always-on-top."""
