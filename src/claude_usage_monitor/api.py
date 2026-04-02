@@ -228,9 +228,8 @@ class ApiClient:
                 self._min_interval = backoff
                 logger.info("429 rate limited (x%d) — prochain essai dans %ds",
                             self._consecutive_429, backoff)
-                if force:
-                    return UsageData(error=t("rate_limited"), subscription_type=sub_type)
-                return None
+                # Toujours signaler le 429 pour que l'UI montre la péremption
+                return UsageData(error=t("rate_limited"), subscription_type=sub_type)
 
             resp.raise_for_status()
             data = resp.json()

@@ -27,6 +27,7 @@ from claude_usage_monitor.i18n import t
 from claude_usage_monitor.utils import (
     format_countdown,
     is_windows,
+    time_ago,
 )
 
 logger = logging.getLogger(__name__)
@@ -344,22 +345,37 @@ class OverlayWidget:
         bar_x1, bar_x2 = 12, OVERLAY_WIDTH - 12
         bar_w = bar_x2 - bar_x1
 
+        # Indicateur de péremption (données > 3min)
+        is_stale = data.fetched_at and (time.time() - data.fetched_at > 180)
+
         if data.five_hour:
             pct = data.five_hour.percentage
-            self._canvas.itemconfig(self._txt_5h_pct, text=f"{pct:.0f}%")
+            pct_text = f"{pct:.0f}%"
+            if is_stale:
+                pct_text += " ⏳"
+            self._canvas.itemconfig(self._txt_5h_pct, text=pct_text)
             fill_w = max(0, int(bar_w * min(pct, 100) / 100))
             self._canvas.coords(self._bar_5h, bar_x1, 28, bar_x1 + fill_w, 33)
-            self._canvas.itemconfig(self._bar_5h, fill=_bar_color(pct))
+            color = _bar_color(pct)
+            if is_stale:
+                color = OV["fg_dim"]  # Gris si données périmées
+            self._canvas.itemconfig(self._bar_5h, fill=color)
         else:
             self._canvas.itemconfig(self._txt_5h_pct, text="—")
             self._canvas.coords(self._bar_5h, bar_x1, 28, bar_x1, 33)
 
         if data.seven_day:
             pct = data.seven_day.percentage
-            self._canvas.itemconfig(self._txt_7d_pct, text=f"{pct:.0f}%")
+            pct_text = f"{pct:.0f}%"
+            if is_stale:
+                pct_text += " ⏳"
+            self._canvas.itemconfig(self._txt_7d_pct, text=pct_text)
             fill_w = max(0, int(bar_w * min(pct, 100) / 100))
             self._canvas.coords(self._bar_7d, bar_x1, 60, bar_x1 + fill_w, 65)
-            self._canvas.itemconfig(self._bar_7d, fill=_bar_color(pct))
+            color = _bar_color(pct)
+            if is_stale:
+                color = OV["fg_dim"]
+            self._canvas.itemconfig(self._bar_7d, fill=color)
         else:
             self._canvas.itemconfig(self._txt_7d_pct, text="—")
             self._canvas.coords(self._bar_7d, bar_x1, 60, bar_x1, 65)
@@ -368,8 +384,11 @@ class OverlayWidget:
         data = self._data
         if data.five_hour:
             pct = data.five_hour.percentage
+            is_stale = data.fetched_at and (time.time() - data.fetched_at > 180)
             self._canvas.itemconfig(self._txt_mini, text=f"{pct:.0f}%")
-            self._canvas.itemconfig(self._txt_mini, fill="#ffffff")
+            # Gris si données périmées, blanc sinon
+            self._canvas.itemconfig(self._txt_mini,
+                                     fill=OV["fg_dim"] if is_stale else "#ffffff")
         else:
             self._canvas.itemconfig(self._txt_mini, text="—")
 
@@ -491,11 +510,17 @@ class OverlayWidget:
                      bg=OV["card"], fg=OV["fg_dim"],
                      font=("Segoe UI", 9)).pack(padx=pad, pady=(2, 0), anchor="w")
 
-        # --- Erreur (seulement si pas de données valides) ---
+        # --- Indicateur de péremption / erreur ---
+        is_stale = data.fetched_at and (time.time() - data.fetched_at > 180)
         if data.error and not data.five_hour and not data.seven_day:
             tk.Label(frame, text=f"⚠ {data.error}",
                      bg=OV["card"], fg=OV["fg_dim"],
                      font=("Segoe UI", 9)).pack(padx=pad, pady=(2, 0), anchor="w")
+        elif is_stale:
+            ago = time_ago(data.fetched_at)
+            tk.Label(frame, text=f"⏳ Données {ago}",
+                     bg=OV["card"], fg="#78716c",
+                     font=("Segoe UI", 8)).pack(padx=pad, pady=(2, 0), anchor="w")
 
         # --- Sparkline ---
         self._draw_sparkline(frame, pad)

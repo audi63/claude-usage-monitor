@@ -175,7 +175,7 @@ class TrayManager:
         return max(pcts) if pcts else None
 
     def _build_tooltip(self, data: UsageData) -> str:
-        if data.error:
+        if data.error and not data.five_hour and not data.seven_day:
             return f"Claude Usage Monitor\n⚠ {data.error[:100]}"
 
         lines = ["Claude Usage Monitor"]
@@ -192,7 +192,10 @@ class TrayManager:
 
         sub = data.subscription_type or "?"
         ago = time_ago(data.fetched_at)
-        lines.append(f"{sub.capitalize()} | {t('last_update')} {ago}")
+        status = f"{sub.capitalize()} | {t('last_update')} {ago}"
+        if data.error:
+            status += " | ⚠ 429"
+        lines.append(status)
 
         return "\n".join(lines)
 

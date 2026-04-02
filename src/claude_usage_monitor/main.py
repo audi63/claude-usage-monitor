@@ -113,20 +113,23 @@ class Application:
     def _polling_loop(self) -> None:
         """Boucle de polling API en arrière-plan.
 
-        En cas d'erreur, passe en mode retry (15s) jusqu'à rétablissement.
+        En cas d'erreur réseau, passe en mode retry rapide (15s).
+        Sinon, respecte le max entre l'intervalle configuré et le backoff API.
         """
         RETRY_INTERVAL = 15  # secondes entre les tentatives en mode déconnecté
 
         # Attendre un peu avant le premier cycle (le fetch immédiat est déjà planifié)
-        time.sleep(self.config.get("refresh_interval_seconds", 60))
+        time.sleep(self.config.get("refresh_interval_seconds", 120))
 
         while self._polling:
             self._do_fetch()
-            # Intervalle réduit si déconnecté, normal sinon
+            # Intervalle : max(config, backoff API) sauf si déconnecté (retry rapide)
             if self._was_disconnected:
                 interval = RETRY_INTERVAL
             else:
-                interval = self.config.get("refresh_interval_seconds", 60)
+                config_interval = self.config.get("refresh_interval_seconds", 120)
+                api_backoff = self.api_client._min_interval
+                interval = max(config_interval, api_backoff)
             # Dormir par petits incréments pour pouvoir s'arrêter rapidement
             for _ in range(int(interval)):
                 if not self._polling:
@@ -147,11 +150,20 @@ class Application:
 
     def _on_data_received(self, data: UsageData) -> None:
         """Callback appelé dans le thread principal après réception des données."""
-        # Erreur temporaire (429) : garder les données existantes si on a des % valides
+        # Erreur temporaire (429) : garder les % existants mais propager l'erreur
         if data.error and not data.is_disconnected and self.current_data:
             has_valid = self.current_data.five_hour or self.current_data.seven_day
             if has_valid:
-                logger.warning("Erreur API temporaire: %s", data.error)
+                # Garder les données valides mais marquer l'erreur et l'ancienneté
+                self.current_data.error = data.error
+                logger.warning("Erreur API temporaire: %s (données de %s)",
+                               data.error,
+                               time.strftime("%H:%M:%S",
+                                             time.localtime(self.current_data.fetched_at)))
+                # Mettre à jour l'UI avec les anciennes données + indicateur d'erreur
+                self.tray.update(self.current_data)
+                self.popup.update_data(self.current_data)
+                self.overlay.update_data(self.current_data)
                 return
 
         self.current_data = data

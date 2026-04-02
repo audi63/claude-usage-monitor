@@ -4,6 +4,15 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.0.4] — 2026-04-03
+
+### Corrigé
+- **Données périmées non mises à jour** : les erreurs 429 n'avalent plus silencieusement le refresh — les données se mettent à jour dès que l'API répond
+- **Polling synchronisé avec le backoff** : l'intervalle de polling respecte le max(config, backoff API) au lieu de poller inutilement pendant le backoff
+- **Indicateur de péremption ⏳** : barres grises + icône sablier quand les données ont plus de 3 minutes, visible sur overlay normal, mini et expanded
+- **Tooltip tray amélioré** : affiche "⚠ 429" quand l'API rate-limit au lieu de cacher l'erreur
+- **Popup footer enrichi** : montre "⏳ Trop de requêtes" avec l'ancienneté des données
+
 ## [2.0.3] — 2026-04-03
 
 ### Corrigé

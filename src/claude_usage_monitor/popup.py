@@ -242,9 +242,16 @@ class PopupWindow:
         self._draw_sparkline()
 
         # Footer
+        import time as _time
         sub = (data.subscription_type or "?").capitalize()
         ago = time_ago(data.fetched_at)
-        error_txt = f"  ·  ⚠ {data.error}" if data.error else ""
+        is_stale = data.fetched_at and (_time.time() - data.fetched_at > 180)
+        if data.error and is_stale:
+            error_txt = f"  ·  ⏳ {data.error}"
+        elif data.error:
+            error_txt = f"  ·  ⚠ {data.error}"
+        else:
+            error_txt = ""
         self._lbl_footer.config(text=f"Forfait {sub}  ·  MàJ {ago}{error_txt}")
 
     def _draw_bar(self, canvas: tk.Canvas, percentage: float | None) -> None:
