@@ -5,10 +5,17 @@ Moniteur temps réel des limites d'utilisation Claude (Pro/Max) — tray icon dy
 ![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)
 ![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D6)
 ![Linux](https://img.shields.io/badge/Linux-compatible-FCC624)
+![PyPI](https://img.shields.io/pypi/v/claude-monitor-usage)
 ![Tous droits réservés](https://img.shields.io/badge/licence-tous%20droits%20r%C3%A9serv%C3%A9s-red)
 
 > **Projet publié à titre de présentation et de consultation.**
 > Tous droits réservés. Aucune utilisation, reproduction, modification, redistribution ou exploitation commerciale n'est autorisée sans accord écrit préalable de l'auteur. Voir [LICENSE.md](LICENSE.md).
+
+## Pourquoi ?
+
+- **Libérez votre console** : si vous affichiez vos quotas dans le terminal, cette appli remplace ça par un widget discret toujours visible — vous récupérez de l'espace dans votre fenêtre de travail.
+- **Gain de temps** : plus besoin de chercher dans les menus Claude, d'ouvrir une page web ou de taper une commande pour connaître vos quotas restants. Un coup d'œil suffit.
+- **Anticipez les limites** : notifications automatiques à 80% et 95%, estimation du temps restant avant d'atteindre la limite.
 
 ## Fonctionnalités
 
