@@ -13,6 +13,7 @@ from claude_usage_monitor.api import ApiClient, UsageData
 from claude_usage_monitor.cache import load as load_cache
 from claude_usage_monitor.cache import save as save_cache
 from claude_usage_monitor.config import load_config, save_config
+from claude_usage_monitor.notifications import NotificationManager
 from claude_usage_monitor.overlay import OverlayWidget
 from claude_usage_monitor.popup import PopupWindow
 from claude_usage_monitor.tray import TrayManager
@@ -44,12 +45,18 @@ class Application:
             on_double_click=self._toggle_popup,
         )
 
-        # Tray icon
+        # Tray icon (créé avant NotificationManager car on a besoin de tray.notify)
         self.tray = TrayManager(
             on_refresh=self._request_refresh,
             on_toggle_popup=self._toggle_popup,
             on_quit=self._quit,
             on_toggle_overlay=self._toggle_overlay,
+        )
+
+        # Notifications système
+        self.notifications = NotificationManager(
+            self.config,
+            notify_fn=self.tray.notify,
         )
 
         # Charger le cache pour affichage immédiat
@@ -107,6 +114,7 @@ class Application:
         self.tray.update(data)
         self.popup.update_data(data)
         self.overlay.update_data(data)
+        self.notifications.check(data)
 
         if data.error:
             logger.warning("Erreur API: %s", data.error)
