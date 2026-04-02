@@ -11,10 +11,12 @@ from typing import TYPE_CHECKING, Callable
 import pystray
 from pystray import MenuItem as Item
 
+from claude_usage_monitor import __version__
 from claude_usage_monitor.api import UsageData
 from claude_usage_monitor.autostart import is_autostart_enabled, enable_autostart, disable_autostart
 from claude_usage_monitor.i18n import t
 from claude_usage_monitor.icon_generator import generate_icon
+from claude_usage_monitor.updater import get_available_update, open_update_page
 from claude_usage_monitor.utils import (
     format_countdown,
     format_percentage,
@@ -57,7 +59,7 @@ class TrayManager:
         self._icon.default_action = self._on_left_click
 
     def _build_menu(self) -> pystray.Menu:
-        return pystray.Menu(
+        items = [
             Item(t("refresh_now"), self._handle_refresh),
             Item(
                 t("overlay_widget"),
@@ -78,10 +80,23 @@ class TrayManager:
             Item(t("open_claude"), self._handle_open_claude),
             Item(t("open_settings"), self._handle_open_settings),
             pystray.Menu.SEPARATOR,
-            Item("Claude Usage Monitor v2.0.0", self._handle_about),
-            pystray.Menu.SEPARATOR,
-            Item(t("quit"), self._handle_quit),
-        )
+            Item(f"Claude Usage Monitor v{__version__}", self._handle_about),
+        ]
+
+        # Ajouter le lien de mise à jour si disponible
+        update = get_available_update()
+        if update:
+            items.append(
+                Item(
+                    f"⬆ Mettre à jour → v{update['version']}",
+                    self._handle_update,
+                )
+            )
+
+        items.append(pystray.Menu.SEPARATOR)
+        items.append(Item(t("quit"), self._handle_quit))
+
+        return pystray.Menu(*items)
 
     def _on_left_click(self, icon: pystray.Icon, item: Item | None = None) -> None:
         self._on_toggle_popup()
@@ -126,6 +141,16 @@ class TrayManager:
         self, icon: pystray.Icon = None, item: Item = None
     ) -> None:
         webbrowser.open("https://github.com/audi63/claude-usage-monitor")
+
+    def _handle_update(
+        self, icon: pystray.Icon = None, item: Item = None
+    ) -> None:
+        open_update_page()
+
+    def refresh_menu(self) -> None:
+        """Reconstruit le menu (ex: après détection d'une mise à jour)."""
+        if not self._stopped:
+            self._icon.menu = self._build_menu()
 
     def _handle_quit(self, icon: pystray.Icon = None, item: Item = None) -> None:
         self.stop()

@@ -90,7 +90,10 @@ class Application:
             self.tray.set_overlay_visible(True)
 
         # Vérifier les mises à jour
-        check_for_update(notify_fn=self.tray.notify)
+        check_for_update(
+            notify_fn=self.tray.notify,
+            on_update_found=self.tray.refresh_menu,
+        )
 
         # Lancer le polling API (thread daemon)
         poll_thread = threading.Thread(target=self._polling_loop, daemon=True)
