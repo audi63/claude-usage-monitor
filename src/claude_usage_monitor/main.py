@@ -13,6 +13,7 @@ from claude_usage_monitor.api import ApiClient, UsageData
 from claude_usage_monitor.cache import load as load_cache
 from claude_usage_monitor.cache import save as save_cache
 from claude_usage_monitor.config import load_config, save_config
+from claude_usage_monitor.overlay import OverlayWidget
 from claude_usage_monitor.popup import PopupWindow
 from claude_usage_monitor.tray import TrayManager
 
@@ -35,6 +36,13 @@ class Application:
 
         # Popup détaillé
         self.popup = PopupWindow(self.root, on_refresh=self._request_refresh)
+
+        # Widget overlay always-on-top
+        self.overlay = OverlayWidget(
+            self.root,
+            self.config,
+            on_double_click=self._toggle_popup,
+        )
 
         # Tray icon
         self.tray = TrayManager(
@@ -98,6 +106,7 @@ class Application:
         self.current_data = data
         self.tray.update(data)
         self.popup.update_data(data)
+        self.overlay.update_data(data)
 
         if data.error:
             logger.warning("Erreur API: %s", data.error)
@@ -118,13 +127,14 @@ class Application:
         self.root.after(0, self.popup.toggle)
 
     def _toggle_overlay(self, visible: bool) -> None:
-        """Toggle le widget overlay (sera implémenté en Phase 3)."""
-        logger.debug("Overlay toggle: %s", visible)
+        """Toggle le widget overlay always-on-top."""
+        self.root.after(0, lambda: self.overlay.show() if visible else self.overlay.hide())
 
     def _quit(self) -> None:
         """Arrête proprement l'application."""
         logger.info("Arrêt de Claude Usage Monitor...")
         self._polling = False
+        self.overlay.hide()
         self.popup.hide()
         self.tray.stop()
         try:
