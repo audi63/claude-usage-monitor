@@ -16,7 +16,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "start_minimized": True,
     "language": "fr",
     "always_on_top": True,
-    "widget_opacity": 0.85,
+    "widget_opacity": 0.95,
     "widget_position": {
         "x": None,
         "y": None,

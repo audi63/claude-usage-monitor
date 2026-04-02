@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import signal
 import webbrowser
 from typing import TYPE_CHECKING, Callable
 
@@ -39,6 +41,7 @@ class TrayManager:
         self._on_toggle_overlay = on_toggle_overlay
         self._overlay_visible = False
         self._current_data: UsageData | None = None
+        self._stopped = False
 
         self._icon = pystray.Icon(
             name="claude-usage-monitor",
@@ -46,7 +49,6 @@ class TrayManager:
             title="Claude Usage Monitor — Chargement...",
             menu=self._build_menu(),
         )
-        # Clic gauche → toggle popup
         self._icon.default_action = self._on_left_click
 
     def _build_menu(self) -> pystray.Menu:
@@ -61,12 +63,7 @@ class TrayManager:
             Item("Ouvrir claude.ai", self._handle_open_claude),
             Item("Ouvrir les settings", self._handle_open_settings),
             pystray.Menu.SEPARATOR,
-            Item(
-                "À propos",
-                lambda: None,
-                enabled=False,
-            ),
-            Item("Claude Usage Monitor v1.0.0", lambda: None, enabled=False),
+            Item("Claude Usage Monitor v1.0.0", self._handle_about),
             pystray.Menu.SEPARATOR,
             Item("Quitter", self._handle_quit),
         )
@@ -94,19 +91,23 @@ class TrayManager:
     ) -> None:
         webbrowser.open("https://claude.ai/settings")
 
+    def _handle_about(
+        self, icon: pystray.Icon = None, item: Item = None
+    ) -> None:
+        webbrowser.open("https://github.com/audi63/claude-usage-monitor")
+
     def _handle_quit(self, icon: pystray.Icon = None, item: Item = None) -> None:
-        self._icon.stop()
+        self.stop()
         self._on_quit()
 
     def update(self, data: UsageData) -> None:
         """Met à jour l'icône et le tooltip avec les nouvelles données."""
+        if self._stopped:
+            return
         self._current_data = data
 
-        # Déterminer le pourcentage le plus élevé pour l'icône
         max_pct = self._get_max_percentage(data)
         self._icon.icon = generate_icon(max_pct)
-
-        # Construire le tooltip (max ~127 chars sur Windows)
         self._icon.title = self._build_tooltip(data)
 
     def _get_max_percentage(self, data: UsageData) -> float | None:
@@ -144,7 +145,12 @@ class TrayManager:
         self._icon.run_detached()
 
     def stop(self) -> None:
+        """Arrête proprement le tray icon et supprime l'icône."""
+        if self._stopped:
+            return
+        self._stopped = True
         try:
+            self._icon.visible = False
             self._icon.stop()
         except Exception:
             pass
@@ -154,6 +160,8 @@ class TrayManager:
 
     def notify(self, title: str, message: str) -> None:
         """Affiche une notification système via pystray."""
+        if self._stopped:
+            return
         try:
             self._icon.notify(message, title)
         except Exception as e:

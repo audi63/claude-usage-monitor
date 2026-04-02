@@ -111,9 +111,9 @@ class Application:
                     break
                 time.sleep(1)
 
-    def _do_fetch(self) -> None:
+    def _do_fetch(self, force: bool = False) -> None:
         """Effectue un appel API et met à jour l'UI."""
-        data = self.api_client.fetch_usage()
+        data = self.api_client.fetch_usage(force=force)
         if not data.error:
             save_cache(data)
             save_history(data, self.config.get("history_retention_days", 7))
@@ -140,8 +140,8 @@ class Application:
             logger.info("Usage mis à jour: %s", ", ".join(pcts))
 
     def _request_refresh(self) -> None:
-        """Force un rafraîchissement immédiat (depuis n'importe quel thread)."""
-        threading.Thread(target=self._do_fetch, daemon=True).start()
+        """Force un rafraîchissement immédiat, bypass le rate limit client."""
+        threading.Thread(target=lambda: self._do_fetch(force=True), daemon=True).start()
 
     def _toggle_popup(self) -> None:
         """Toggle le popup détaillé."""
@@ -164,6 +164,9 @@ class Application:
             self.root.destroy()
         except Exception:
             pass
+        # Forcer la terminaison pour éviter que le thread pystray survive
+        import os
+        os._exit(0)
 
 
 def main() -> None:

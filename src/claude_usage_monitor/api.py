@@ -61,7 +61,7 @@ class ApiClient:
 
     def __init__(self) -> None:
         self._last_fetch: float = 0
-        self._min_interval: float = 30  # secondes min entre appels
+        self._min_interval: float = 30  # secondes min entre appels auto
 
     def _read_credentials(self) -> dict | None:
         """Lit le fichier credentials Claude Code."""
@@ -142,16 +142,20 @@ class ApiClient:
         except OSError as e:
             logger.error("Erreur écriture credentials: %s", e)
 
-    def fetch_usage(self) -> UsageData:
+    def fetch_usage(self, force: bool = False) -> UsageData:
         """Récupère les données d'utilisation depuis l'API.
+
+        Args:
+            force: Si True, bypass le rate limit client (refresh manuel).
 
         Gère automatiquement le refresh du token si expiré.
         Ne lève jamais d'exception — retourne UsageData avec champ error.
         """
-        # Rate limiting côté client
-        elapsed = time.time() - self._last_fetch
-        if elapsed < self._min_interval and self._last_fetch > 0:
-            return UsageData(error=f"Rate limit: attendre {self._min_interval - elapsed:.0f}s")
+        # Rate limiting côté client (bypass si force=True)
+        if not force:
+            elapsed = time.time() - self._last_fetch
+            if elapsed < self._min_interval and self._last_fetch > 0:
+                return UsageData(error=f"Rate limit: attendre {self._min_interval - elapsed:.0f}s")
 
         try:
             # Lire les credentials

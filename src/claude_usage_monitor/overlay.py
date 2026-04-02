@@ -11,14 +11,13 @@ from claude_usage_monitor.config import save_config
 from claude_usage_monitor.screens import clamp_position, get_preset_position
 from claude_usage_monitor.utils import (
     format_countdown,
-    format_percentage,
     is_windows,
 )
 
 logger = logging.getLogger(__name__)
 
 OVERLAY_WIDTH = 240
-OVERLAY_HEIGHT = 80
+OVERLAY_HEIGHT = 64
 CHROMA_KEY = "#010101"
 
 # Palette Claude overlay
@@ -27,7 +26,7 @@ OV = {
     "card": "#292524",
     "border": "#3d3833",
     "fg": "#e7e5e4",
-    "fg_dim": "#78716c",
+    "fg_dim": "#a8a29e",
     "bar_bg": "#3d3833",
     "bar_blue": "#5b8def",
     "bar_warn": "#e6a348",
@@ -59,6 +58,7 @@ class OverlayWidget:
         self._on_double_click = on_double_click
         self._on_right_click = on_right_click
         self._window: tk.Toplevel | None = None
+        self._tooltip: tk.Toplevel | None = None
         self._visible = False
         self._data: UsageData | None = None
         self._countdown_job: str | None = None
@@ -81,7 +81,7 @@ class OverlayWidget:
             self._window.attributes("-transparentcolor", CHROMA_KEY)
             self._window.after(50, self._apply_win32_styles)
         else:
-            opacity = self._config.get("widget_opacity", 0.85)
+            opacity = self._config.get("widget_opacity", 0.95)
             self._window.attributes("-alpha", opacity)
             self._window.configure(bg=OV["bg"])
             try:
@@ -101,6 +101,7 @@ class OverlayWidget:
         self._start_countdown()
 
     def hide(self) -> None:
+        self._hide_tooltip()
         if self._countdown_job:
             self._root.after_cancel(self._countdown_job)
             self._countdown_job = None
@@ -120,11 +121,6 @@ class OverlayWidget:
         if self._visible and self._window:
             self._update_display()
 
-    def set_opacity(self, opacity: float) -> None:
-        self._config["widget_opacity"] = opacity
-        if self._window and not is_windows():
-            self._window.attributes("-alpha", opacity)
-
     def _apply_win32_styles(self) -> None:
         if not is_windows() or not self._window:
             return
@@ -134,9 +130,10 @@ class OverlayWidget:
             user32 = ctypes.windll.user32
             GWL_EXSTYLE = -20
             style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
-            style |= 0x08000000 | 0x00000080 | 0x00000008 | 0x00080000  # NOACTIVATE|TOOLWINDOW|TOPMOST|LAYERED
+            style |= 0x08000000 | 0x00000080 | 0x00000008 | 0x00080000
             user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style)
-            opacity = self._config.get("widget_opacity", 0.85)
+            # Opacité forte par défaut (0.95)
+            opacity = self._config.get("widget_opacity", 0.95)
             user32.SetLayeredWindowAttributes(hwnd, 0, int(opacity * 255), 0x02)
         except Exception as e:
             logger.warning("Erreur styles Win32: %s", e)
@@ -154,7 +151,6 @@ class OverlayWidget:
         w = self._window
         bg = CHROMA_KEY if is_windows() else OV["bg"]
 
-        # Canvas principal
         self._canvas = tk.Canvas(
             w, width=OVERLAY_WIDTH, height=OVERLAY_HEIGHT,
             bg=bg, highlightthickness=0, bd=0,
@@ -167,40 +163,35 @@ class OverlayWidget:
                                 radius=12, fill=OV["card"], outline=OV["border"])
 
         # --- Section 5h ---
-        y1 = 14
+        y1 = 16
         c.create_text(12, y1, text="Session (5h)", anchor="w",
-                      fill=OV["fg_dim"], font=("Segoe UI", 8))
+                      fill=OV["fg_dim"], font=("Segoe UI", 9))
         self._txt_5h_pct = c.create_text(OVERLAY_WIDTH - 12, y1, text="—",
                                           anchor="e", fill=OV["fg"],
-                                          font=("Segoe UI", 8, "bold"))
+                                          font=("Segoe UI", 9, "bold"))
 
         # Barre 5h
-        bar_y1 = y1 + 10
+        bar_y1 = y1 + 12
         bar_x1, bar_x2 = 12, OVERLAY_WIDTH - 12
-        c.create_rectangle(bar_x1, bar_y1, bar_x2, bar_y1 + 4,
+        c.create_rectangle(bar_x1, bar_y1, bar_x2, bar_y1 + 5,
                            fill=OV["bar_bg"], outline="")
-        self._bar_5h = c.create_rectangle(bar_x1, bar_y1, bar_x1, bar_y1 + 4,
+        self._bar_5h = c.create_rectangle(bar_x1, bar_y1, bar_x1, bar_y1 + 5,
                                            fill=OV["bar_blue"], outline="")
 
         # --- Section 7j ---
-        y2 = 40
+        y2 = 42
         c.create_text(12, y2, text="Hebdo (7j)", anchor="w",
-                      fill=OV["fg_dim"], font=("Segoe UI", 8))
+                      fill=OV["fg_dim"], font=("Segoe UI", 9))
         self._txt_7d_pct = c.create_text(OVERLAY_WIDTH - 12, y2, text="—",
                                           anchor="e", fill=OV["fg"],
-                                          font=("Segoe UI", 8, "bold"))
+                                          font=("Segoe UI", 9, "bold"))
 
         # Barre 7j
-        bar_y2 = y2 + 10
-        c.create_rectangle(bar_x1, bar_y2, bar_x2, bar_y2 + 4,
+        bar_y2 = y2 + 12
+        c.create_rectangle(bar_x1, bar_y2, bar_x2, bar_y2 + 5,
                            fill=OV["bar_bg"], outline="")
-        self._bar_7d = c.create_rectangle(bar_x1, bar_y2, bar_x1, bar_y2 + 4,
+        self._bar_7d = c.create_rectangle(bar_x1, bar_y2, bar_x1, bar_y2 + 5,
                                            fill=OV["bar_blue"], outline="")
-
-        # --- Countdown ---
-        self._txt_reset = c.create_text(OVERLAY_WIDTH / 2, 68, text="",
-                                         anchor="center", fill=OV["fg_dim"],
-                                         font=("Segoe UI", 7))
 
         # Bindings
         c.bind("<Button-1>", self._start_drag)
@@ -208,6 +199,8 @@ class OverlayWidget:
         c.bind("<ButtonRelease-1>", self._stop_drag)
         c.bind("<Double-Button-1>", self._handle_double_click)
         c.bind("<Button-3>", self._handle_right_click)
+        c.bind("<Enter>", self._show_tooltip)
+        c.bind("<Leave>", self._on_leave)
 
     def _draw_rounded_rect(self, x1, y1, x2, y2, radius=10, **kwargs):
         points = [
@@ -225,48 +218,81 @@ class OverlayWidget:
         bar_x1, bar_x2 = 12, OVERLAY_WIDTH - 12
         bar_w = bar_x2 - bar_x1
 
-        # 5h
         if data.five_hour:
             pct = data.five_hour.percentage
-            self._canvas.itemconfig(self._txt_5h_pct,
-                                     text=f"{pct:.0f} % utilisés")
+            self._canvas.itemconfig(self._txt_5h_pct, text=f"{pct:.0f} % utilisés")
             fill_w = max(0, int(bar_w * min(pct, 100) / 100))
-            self._canvas.coords(self._bar_5h, bar_x1, 24, bar_x1 + fill_w, 28)
+            self._canvas.coords(self._bar_5h, bar_x1, 28, bar_x1 + fill_w, 33)
             self._canvas.itemconfig(self._bar_5h, fill=_bar_color(pct))
         else:
             self._canvas.itemconfig(self._txt_5h_pct, text="—")
-            self._canvas.coords(self._bar_5h, bar_x1, 24, bar_x1, 28)
+            self._canvas.coords(self._bar_5h, bar_x1, 28, bar_x1, 33)
 
-        # 7j
         if data.seven_day:
             pct = data.seven_day.percentage
-            self._canvas.itemconfig(self._txt_7d_pct,
-                                     text=f"{pct:.0f} % utilisés")
+            self._canvas.itemconfig(self._txt_7d_pct, text=f"{pct:.0f} % utilisés")
             fill_w = max(0, int(bar_w * min(pct, 100) / 100))
-            self._canvas.coords(self._bar_7d, bar_x1, 50, bar_x1 + fill_w, 54)
+            self._canvas.coords(self._bar_7d, bar_x1, 54, bar_x1 + fill_w, 59)
             self._canvas.itemconfig(self._bar_7d, fill=_bar_color(pct))
         else:
             self._canvas.itemconfig(self._txt_7d_pct, text="—")
-            self._canvas.coords(self._bar_7d, bar_x1, 50, bar_x1, 54)
+            self._canvas.coords(self._bar_7d, bar_x1, 54, bar_x1, 59)
 
-        self._update_countdown_text()
+    # --- Tooltip au survol (affiche les countdowns) ---
 
-    def _update_countdown_text(self) -> None:
-        if not self._data:
+    def _show_tooltip(self, event: tk.Event) -> None:
+        self._hide_tooltip()
+        if not self._data or not self._window:
             return
-        parts = []
+
+        lines = []
         if self._data.five_hour:
-            parts.append(f"5h: {format_countdown(self._data.five_hour.resets_at)}")
+            cd = format_countdown(self._data.five_hour.resets_at)
+            lines.append(f"Session (5h) : reset dans {cd}")
         if self._data.seven_day:
-            parts.append(f"7j: {format_countdown(self._data.seven_day.resets_at)}")
-        text = "↻ " + "  ·  ".join(parts) if parts else ""
-        self._canvas.itemconfig(self._txt_reset, text=text)
+            cd = format_countdown(self._data.seven_day.resets_at)
+            lines.append(f"Hebdo (7j) : reset dans {cd}")
+        if self._data.error:
+            lines.append(f"⚠ {self._data.error}")
+
+        if not lines:
+            return
+
+        text = "\n".join(lines)
+
+        self._tooltip = tk.Toplevel(self._root)
+        self._tooltip.overrideredirect(True)
+        self._tooltip.attributes("-topmost", True)
+        if is_windows():
+            self._tooltip.attributes("-toolwindow", True)
+
+        frame = tk.Frame(self._tooltip, bg="#1c1917", highlightbackground="#3d3833",
+                         highlightthickness=1, padx=8, pady=6)
+        frame.pack()
+        tk.Label(frame, text=text, font=("Segoe UI", 10), bg="#1c1917",
+                 fg="#e7e5e4", justify="left").pack()
+
+        # Position sous le widget
+        wx = self._window.winfo_x()
+        wy = self._window.winfo_y() + OVERLAY_HEIGHT + 4
+        self._tooltip.geometry(f"+{wx}+{wy}")
+
+    def _on_leave(self, event: tk.Event) -> None:
+        self._hide_tooltip()
+
+    def _hide_tooltip(self) -> None:
+        if self._tooltip:
+            self._tooltip.destroy()
+            self._tooltip = None
+
+    # --- Countdown (met à jour le tooltip si visible) ---
 
     def _start_countdown(self) -> None:
         if not self._visible or not self._window:
             return
-        self._update_countdown_text()
         self._countdown_job = self._root.after(1000, self._start_countdown)
+
+    # --- Drag & drop ---
 
     def _start_drag(self, event):
         self._drag_data.update(x=event.x, y=event.y, dragging=False)
@@ -275,6 +301,7 @@ class OverlayWidget:
         if not self._window:
             return
         self._drag_data["dragging"] = True
+        self._hide_tooltip()
         dx, dy = event.x - self._drag_data["x"], event.y - self._drag_data["y"]
         x, y = self._window.winfo_x() + dx, self._window.winfo_y() + dy
         x, y = clamp_position(x, y, OVERLAY_WIDTH, OVERLAY_HEIGHT)
