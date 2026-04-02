@@ -4,6 +4,15 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.0.2] — 2026-04-02
+
+### Amélioré
+- **Menu tray dynamique** : affiche la version réelle (`v{__version__}`) au lieu d'un texte en dur
+- **Lien mise à jour** : "⬆ Mettre à jour → vX.Y.Z" apparaît dans le menu tray quand une nouvelle version est disponible, avec clic pour ouvrir la page de release
+
+### Corrigé
+- Exe affichait "v2.0.0" dans le menu tray au lieu de la version réelle
+
 ## [2.0.1] — 2026-04-02
 
 ### Amélioré
