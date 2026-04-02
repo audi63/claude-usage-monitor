@@ -6,6 +6,7 @@ import tkinter as tk
 from typing import TYPE_CHECKING
 
 from claude_usage_monitor.api import UsageData
+from claude_usage_monitor.history import get_sparkline_data, load_history
 from claude_usage_monitor.utils import (
     format_countdown,
     format_percentage,
@@ -29,7 +30,7 @@ THEME = {
 }
 
 POPUP_WIDTH = 340
-POPUP_HEIGHT = 220
+POPUP_HEIGHT = 310
 
 
 class PopupWindow:
@@ -180,7 +181,18 @@ class PopupWindow:
             content, text="", font=("Segoe UI", 8),
             bg=THEME["bg"], fg=THEME["fg_dim"], anchor="w",
         )
-        self._lbl_7d_reset.pack(fill="x", pady=(0, 8))
+        self._lbl_7d_reset.pack(fill="x", pady=(0, 6))
+
+        # Sparkline historique
+        spark_label = tk.Label(
+            content, text="Historique (24h)", font=("Segoe UI", 8),
+            bg=THEME["bg"], fg=THEME["fg_dim"], anchor="w",
+        )
+        spark_label.pack(fill="x")
+        self._spark_canvas = tk.Canvas(
+            content, height=60, bg=THEME["bg"], highlightthickness=0,
+        )
+        self._spark_canvas.pack(fill="x", pady=(2, 6))
 
         # Pied de page
         footer = tk.Frame(frame, bg=THEME["title_bg"], padx=10, pady=4)
@@ -229,6 +241,9 @@ class PopupWindow:
             self._draw_bar(self._canvas_7d, None)
             self._lbl_7d_reset.config(text="")
 
+        # Sparkline
+        self._draw_sparkline()
+
         # Footer
         sub = (data.subscription_type or "?").capitalize()
         ago = time_ago(data.fetched_at)
@@ -250,6 +265,68 @@ class PopupWindow:
             fill_w = max(3, int(w * min(percentage, 100) / 100))
             color = get_hex_color_for_percentage(percentage)
             canvas.create_rectangle(0, 2, fill_w, h - 2, fill=color, outline="")
+
+    def _draw_sparkline(self) -> None:
+        """Dessine le mini-graphique de tendance sur 24h."""
+        canvas = self._spark_canvas
+        canvas.update_idletasks()
+        w = canvas.winfo_width()
+        h = canvas.winfo_height()
+        if w < 20:
+            w = 300
+        if h < 20:
+            h = 60
+        canvas.delete("all")
+
+        # Fond
+        canvas.create_rectangle(0, 0, w, h, fill="#252525", outline="")
+
+        # Lignes de grille horizontales (25%, 50%, 75%)
+        for pct in (25, 50, 75):
+            y = h - (pct / 100 * h)
+            canvas.create_line(0, y, w, y, fill="#333333", dash=(2, 4))
+
+        entries = load_history()
+        if not entries:
+            canvas.create_text(
+                w / 2, h / 2, text="Pas encore de données",
+                fill=THEME["fg_dim"], font=("Segoe UI", 8),
+            )
+            return
+
+        # Dessiner les deux courbes
+        self._draw_spark_line(canvas, entries, "five_hour_pct", "#2196f3", w, h)
+        self._draw_spark_line(canvas, entries, "seven_day_pct", "#ff9800", w, h)
+
+        # Légende
+        canvas.create_rectangle(4, 4, 12, 10, fill="#2196f3", outline="")
+        canvas.create_text(15, 7, text="5h", anchor="w", fill="#2196f3", font=("Segoe UI", 7))
+        canvas.create_rectangle(38, 4, 46, 10, fill="#ff9800", outline="")
+        canvas.create_text(49, 7, text="7j", anchor="w", fill="#ff9800", font=("Segoe UI", 7))
+
+    def _draw_spark_line(
+        self, canvas: tk.Canvas, entries: list, key: str,
+        color: str, w: int, h: int,
+    ) -> None:
+        points = get_sparkline_data(entries, key, hours=24)
+        if len(points) < 2:
+            return
+
+        margin = 2
+        t_min = points[0][0]
+        t_max = points[-1][0]
+        t_range = t_max - t_min
+        if t_range <= 0:
+            return
+
+        coords = []
+        for ts, val in points:
+            x = margin + (ts - t_min) / t_range * (w - 2 * margin)
+            y = h - margin - (min(val, 100) / 100 * (h - 2 * margin))
+            coords.extend([x, y])
+
+        if len(coords) >= 4:
+            canvas.create_line(*coords, fill=color, width=1.5, smooth=True)
 
     def _start_countdown(self) -> None:
         """Met à jour les countdowns chaque seconde."""

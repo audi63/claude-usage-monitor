@@ -13,6 +13,7 @@ from claude_usage_monitor.api import ApiClient, UsageData
 from claude_usage_monitor.cache import load as load_cache
 from claude_usage_monitor.cache import save as save_cache
 from claude_usage_monitor.config import load_config, save_config
+from claude_usage_monitor.history import save_entry as save_history
 from claude_usage_monitor.notifications import NotificationManager
 from claude_usage_monitor.overlay import OverlayWidget
 from claude_usage_monitor.popup import PopupWindow
@@ -104,6 +105,7 @@ class Application:
         data = self.api_client.fetch_usage()
         if not data.error:
             save_cache(data)
+            save_history(data, self.config.get("history_retention_days", 7))
 
         # Mettre à jour depuis le thread principal tkinter
         self.root.after(0, lambda: self._on_data_received(data))
