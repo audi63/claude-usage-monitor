@@ -4,6 +4,13 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.0.5] — 2026-04-03
+
+### Corrigé
+- **Mise à jour sans conflit** : lancer une nouvelle version tue automatiquement l'ancienne instance (plus besoin de tuer manuellement dans le gestionnaire des tâches)
+- **Quitter propre** : "Quitter" tue l'arbre complet de processus (bootloader PyInstaller + Python) au lieu de laisser des processus zombies
+- **Linux/macOS** : le fichier lock stocke le PID pour permettre le kill de l'ancienne instance
+
 ## [2.0.4] — 2026-04-03
 
 ### Corrigé

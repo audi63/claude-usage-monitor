@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
 import threading
 import time
@@ -200,12 +201,31 @@ class Application:
         """Toggle le popup détaillé."""
         self.root.after(0, self.popup.toggle)
 
+    @staticmethod
+    def _force_kill_self() -> None:
+        """Tue proprement le processus courant ET ses enfants (PyInstaller)."""
+        import platform
+        pid = os.getpid()
+        if platform.system() == "Windows":
+            try:
+                import subprocess
+                # /T = tuer l'arbre de processus, /F = forcer
+                subprocess.Popen(
+                    ["taskkill", "/PID", str(pid), "/T", "/F"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            except Exception:
+                os._exit(0)
+        else:
+            os._exit(0)
+
     def _toggle_overlay(self, visible: bool) -> None:
         """Toggle le widget overlay always-on-top."""
         self.root.after(0, lambda: self.overlay.show() if visible else self.overlay.hide())
 
     def _quit(self) -> None:
-        """Arrête proprement l'application."""
+        """Arrête proprement l'application — tue tous les processus liés."""
         logger.info("Arrêt de Claude Usage Monitor...")
         self._polling = False
         unregister_hotkeys()
@@ -217,15 +237,60 @@ class Application:
             self.root.destroy()
         except Exception:
             pass
-        # Forcer la terminaison pour éviter que le thread pystray survive
-        import os
-        os._exit(0)
+        # Tuer notre propre arbre de processus pour éviter les zombies
+        self._force_kill_self()
+
+
+def _kill_existing_instances() -> None:
+    """Tue toutes les instances existantes de claude-usage-monitor (Windows)."""
+    import platform
+    if platform.system() != "Windows":
+        return
+    try:
+        import ctypes
+        import subprocess
+        current_pid = os.getpid()
+        # Trouver tous les processus claude-usage-monitor
+        result = subprocess.run(
+            ["tasklist", "/FI", "IMAGENAME eq claude-usage-monitor.exe", "/FO", "CSV", "/NH"],
+            capture_output=True, text=True, timeout=5,
+        )
+        for line in result.stdout.strip().splitlines():
+            parts = line.strip('"').split('","')
+            if len(parts) >= 2:
+                try:
+                    pid = int(parts[1])
+                    if pid != current_pid:
+                        logger.info("Arrêt de l'ancienne instance PID %d", pid)
+                        subprocess.run(["taskkill", "/PID", str(pid), "/F"],
+                                       capture_output=True, timeout=5)
+                except (ValueError, subprocess.SubprocessError):
+                    pass
+        # Aussi tuer les processus Python qui exécutent ce module
+        result = subprocess.run(
+            ["wmic", "process", "where",
+             "commandline like '%claude_usage_monitor%' and processid != '{}'".format(current_pid),
+             "get", "processid"],
+            capture_output=True, text=True, timeout=5,
+        )
+        for line in result.stdout.strip().splitlines()[1:]:
+            line = line.strip()
+            if line.isdigit():
+                pid = int(line)
+                if pid != current_pid:
+                    logger.info("Arrêt du processus Python PID %d", pid)
+                    subprocess.run(["taskkill", "/PID", str(pid), "/F"],
+                                   capture_output=True, timeout=5)
+    except Exception as e:
+        logger.warning("Erreur lors du nettoyage des anciennes instances: %s", e)
+    # Attendre que les processus soient terminés et le mutex libéré
+    time.sleep(1)
 
 
 def _acquire_single_instance() -> bool:
-    """Empêche le lancement de plusieurs instances simultanées.
+    """Acquiert le mutex single-instance. Tue l'ancienne instance si nécessaire.
 
-    Retourne True si cette instance est la seule, False sinon.
+    Retourne True si cette instance a acquis le lock, False sinon.
     """
     import platform
 
@@ -234,7 +299,12 @@ def _acquire_single_instance() -> bool:
             import ctypes
             _mutex = ctypes.windll.kernel32.CreateMutexW(None, True, "ClaudeUsageMonitor_SingleInstance")
             if ctypes.windll.kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
-                return False
+                # Ancienne instance détectée — la tuer et réessayer
+                ctypes.windll.kernel32.CloseHandle(_mutex)
+                _kill_existing_instances()
+                _mutex = ctypes.windll.kernel32.CreateMutexW(None, True, "ClaudeUsageMonitor_SingleInstance")
+                if ctypes.windll.kernel32.GetLastError() == 183:
+                    return False  # Échec même après kill
             # Garder le mutex vivant en l'attachant au module
             _acquire_single_instance._mutex = _mutex  # type: ignore[attr-defined]
             return True
@@ -246,9 +316,20 @@ def _acquire_single_instance() -> bool:
         from pathlib import Path
 
         lock_path = Path.home() / ".claude-usage-monitor.lock"
+        # Lire le PID de l'ancienne instance et la tuer
+        try:
+            if lock_path.exists():
+                old_pid = lock_path.read_text().strip()
+                if old_pid.isdigit():
+                    os.kill(int(old_pid), 15)  # SIGTERM
+                    time.sleep(1)
+        except (OSError, ProcessLookupError):
+            pass
         try:
             lock_file = open(lock_path, "w")  # noqa: SIM115
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            lock_file.write(str(os.getpid()))
+            lock_file.flush()
             _acquire_single_instance._lock_file = lock_file  # type: ignore[attr-defined]
             return True
         except (OSError, IOError):
@@ -262,17 +343,17 @@ def main() -> None:
         print(f"claude-usage-monitor {__version__}")
         return
 
-    # Single instance
-    if not _acquire_single_instance():
-        print("Claude Usage Monitor est déjà en cours d'exécution.")
-        sys.exit(0)
-
-    # Logging
+    # Logging (avant single instance pour avoir les logs)
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%H:%M:%S",
     )
+
+    # Single instance — tue l'ancienne instance si nécessaire
+    if not _acquire_single_instance():
+        print("Claude Usage Monitor : impossible de prendre le contrôle.")
+        sys.exit(1)
 
     app = Application()
     app.run()
