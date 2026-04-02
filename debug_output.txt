@@ -1,5 +1,0 @@
-21:45:06 [INFO] __main__: Claude Usage Monitor v2.0.0 démarré
-21:45:06 [INFO] claude_usage_monitor.hotkeys: pynput non installé — raccourcis clavier désactivés. Installer avec: uv pip install pynput
-21:45:06 [INFO] __main__: Usage mis à jour: 5h=41.0%, 7j=19.0%
-21:45:08 [INFO] claude_usage_monitor.updater: Version à jour (2.0.0)
-21:47:09 [INFO] __main__: Arrêt de Claude Usage Monitor...

@@ -44,3 +44,4 @@ htmlcov/
 
 # PyInstaller
 *.spec
+debug_output.txt

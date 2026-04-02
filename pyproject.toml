@@ -18,18 +18,17 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Utilities",
 ]
+dependencies = [
+    "requests>=2.31",
+    "pystray>=0.19",
+    "Pillow>=10.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/audi63/claude-usage-monitor"
 Repository = "https://github.com/audi63/claude-usage-monitor"
 Issues = "https://github.com/audi63/claude-usage-monitor/issues"
 Changelog = "https://github.com/audi63/claude-usage-monitor/blob/main/CHANGELOG.md"
-
-dependencies = [
-    "requests>=2.31",
-    "pystray>=0.19",
-    "Pillow>=10.0",
-]
 
 [project.optional-dependencies]
 hotkeys = ["pynput>=1.7"]
