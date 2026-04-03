@@ -107,7 +107,7 @@ Fichier optionnel `~/.claude/usage-monitor-config.json` :
 
 ```json
 {
-  "refresh_interval_seconds": 60,
+  "refresh_interval_seconds": 300,
   "notification_thresholds": [80, 95],
   "notifications_enabled": true,
   "notify_on_reset": true,
@@ -188,7 +188,7 @@ src/claude_usage_monitor/
 ### Threading
 
 - **Thread principal** : tkinter `mainloop()` (UI)
-- **Thread pystray** : tray icon système (`run_detached()`)
+- **Thread pystray** : tray icon système (daemon thread)
 - **Thread polling** : appels API en arrière-plan (daemon)
 - Communication inter-threads via `root.after(0, callback)`
 
@@ -197,6 +197,44 @@ src/claude_usage_monitor/
 L'application a été développée et testée sous **Windows 11 uniquement**. Le code inclut des fallbacks pour Linux et macOS, mais ils n'ont pas été validés en conditions réelles.
 
 Si vous utilisez Linux ou macOS, vos retours sont les bienvenus ! Consultez [CONTRIBUTING.md](CONTRIBUTING.md) pour la liste des points à tester et le format de signalement.
+
+## Dépannage
+
+### "Token expiré — relancer Claude Code" / données périmées
+
+Le token OAuth dans `~/.claude/.credentials.json` peut devenir **révoqué** ou **rate-limité** (problème connu Anthropic). Claude Code garde un token valide en mémoire mais ne le réécrit pas toujours sur disque.
+
+**Solution :** ouvrir un terminal et lancer :
+```bash
+claude auth login
+```
+L'app détecte automatiquement le nouveau fichier credentials (vérification toutes les 5 secondes) et récupère les données immédiatement.
+
+### "API occupée — réessai auto…"
+
+L'API `/api/oauth/usage` a un rate-limiting très agressif (problème connu, issues Anthropic [#31637](https://github.com/anthropics/claude-code/issues/31637), [#30930](https://github.com/anthropics/claude-code/issues/30930)). L'app gère cela avec :
+- Backoff progressif (jusqu'à 5 minutes entre les appels)
+- Tentative de refresh du token OAuth au premier 429
+- Affichage des dernières données connues avec indicateur de péremption (⏳)
+
+### Widget overlay tronqué au survol
+
+Si la vue étendue au survol apparaît tronquée, c'est un conflit entre les styles Win32 et tkinter dans l'exe compilé. L'approche actuelle (destroy/recreate de la fenêtre) résout ce problème de manière fiable.
+
+## Notes techniques
+
+### Approche hover (destroy/recreate)
+
+L'expansion du widget au survol **détruit et recrée** la fenêtre tkinter au lieu de redimensionner en place. C'est nécessaire car les styles Win32 `WS_EX_LAYERED + WS_EX_TOOLWINDOW + overrideredirect` rendent le resize via `geometry()` et `MoveWindow()` peu fiable dans un exe PyInstaller. La fenêtre est recréée à la position exacte avec la taille expanded, puis re-détruite/recréée au collapse.
+
+### Gestion des tokens OAuth
+
+L'app surveille le fichier `~/.claude/.credentials.json` (mtime) toutes les 5 secondes. Quand le fichier change (login, refresh par Claude Code), l'app :
+1. Détecte le nouveau token (comparaison avec le précédent)
+2. Réinitialise le backoff 429
+3. Fait un appel API immédiat
+
+Le User-Agent `claude-code/2.0.31` est utilisé pour obtenir les vrais codes d'erreur de l'API (sans lui, les 403 "token revoked" sont masqués par des 429 génériques).
 
 ## Source de données
 

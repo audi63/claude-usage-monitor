@@ -4,6 +4,20 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.2.0] — 2026-04-03
+
+### Corrigé
+- **Vue hover fiable (destroy/recreate)** : l'expansion au survol détruit et recrée la fenêtre tkinter au lieu d'essayer de redimensionner en place — résout définitivement les problèmes de troncature avec les styles Win32 (LAYERED, TOOLWINDOW, overrideredirect) dans l'exe compilé PyInstaller
+- **Token révoqué détecté** : l'API masquait les 403 "token revoked" derrière des 429 génériques. Le User-Agent `claude-code/2.0.31` permet d'obtenir les vrais codes d'erreur. Message clair "Token expiré — relancer Claude Code" au lieu de "API occupée" en boucle
+- **Surveillance du fichier credentials** : l'app vérifie toutes les 5 secondes si `~/.claude/.credentials.json` a été modifié (par `claude auth login` ou Claude Code) et récupère les données immédiatement avec le nouveau token
+- **Détection de rotation de token** : quand Claude Code écrit un nouveau token, le backoff 429 est automatiquement réinitialisé
+
+### Amélioré
+- **Polling réduit à 5 min** (au lieu de 2 min) pour réduire le risque de rate-limit sur l'API usage (problème connu Anthropic #31637)
+- **Backoff 429 étendu** : max 300s (au lieu de 120s) pour les cas de rate-limit persistant
+- **Headers API alignés sur Claude Code** : User-Agent, Accept-Encoding identiques pour obtenir les vrais codes d'erreur
+- **Refresh token au premier 429** : tentative de rafraîchissement dès le premier 429 (au lieu d'attendre 3 échecs)
+
 ## [2.1.2] — 2026-04-03
 
 ### Corrigé

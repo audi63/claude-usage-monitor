@@ -86,6 +86,7 @@ class OverlayWidget:
         self._data: UsageData | None = None
         self._countdown_job: str | None = None
         self._drag_data: dict = {"x": 0, "y": 0, "dragging": False}
+        self._rebuilding: bool = False
 
     @property
     def visible(self) -> bool:
@@ -424,6 +425,9 @@ class OverlayWidget:
             self._hover_job = None
         if not self._expanded or not self._window:
             return
+        # Ne pas collapse pendant le rebuild (les events Enter/Leave sont instables)
+        if getattr(self, "_rebuilding", False):
+            return
         # Vérifier que la souris est vraiment sortie (pas juste entre widgets enfants)
         x, y = self._window.winfo_pointerxy()
         wx, wy = self._window.winfo_rootx(), self._window.winfo_rooty()
@@ -433,42 +437,80 @@ class OverlayWidget:
         self._expanded = False
         self._collapse()
 
-    def _rebuild_expanded(self) -> None:
-        """Reconstruit le widget en mode étendu."""
-        if not self._window or not self._data:
+    def _resize_window(self, x: int, y: int, w: int, h: int) -> None:
+        """Redimensionne la fenêtre via geometry + Win32 MoveWindow (double approche)."""
+        if not self._window:
             return
-
-        # Garder la position actuelle
-        wx = self._window.winfo_x()
-        wy = self._window.winfo_y()
-
-        # Supprimer le contenu
-        for child in self._window.winfo_children():
-            child.destroy()
-
-        # 1. Retirer la région Win32 qui clippe la fenêtre à la taille compacte
+        # Toujours setter la geometry tkinter d'abord
+        self._window.geometry(f"{w}x{h}+{x}+{y}")
+        self._window.update_idletasks()
         if is_windows():
             try:
                 import ctypes
                 hwnd = int(self._window.frame(), 16)
-                ctypes.windll.user32.SetWindowRgn(hwnd, 0, True)
+                user32 = ctypes.windll.user32
+                # Retirer toute région de clip avant le resize
+                user32.SetWindowRgn(hwnd, 0, True)
+                # MoveWindow en complément pour forcer Win32
+                user32.MoveWindow(hwnd, x, y, w, h, True)
+            except Exception as e:
+                logger.warning("MoveWindow fallback: %s", e)
+        self._window.update()
+
+    def _rebuild_expanded(self) -> None:
+        """Reconstruit le widget en mode étendu.
+
+        Stratégie : détruire et recréer la fenêtre à la bonne taille
+        (plus fiable que le resize en place avec Win32 styles).
+        """
+        if not self._window or not self._data:
+            return
+        self._rebuilding = True
+
+        wx = self._window.winfo_x()
+        wy = self._window.winfo_y()
+
+        # Détruire l'ancienne fenêtre
+        if self._countdown_job:
+            self._root.after_cancel(self._countdown_job)
+            self._countdown_job = None
+        self._window.destroy()
+
+        # Créer une nouvelle fenêtre à la taille expanded
+        self._window = tk.Toplevel(self._root)
+        self._window.overrideredirect(True)
+        self._window.attributes("-topmost", True)
+        self._window.configure(bg=OV["card"])
+        self._window.pack_propagate(False)
+
+        # Taille initiale large pour le contenu
+        self._window.geometry(f"{EXPANDED_WIDTH}x{EXPANDED_HEIGHT}+{wx}+{wy}")
+        self._window.update_idletasks()
+
+        if is_windows():
+            self._window.after(10, self._apply_win32_styles)
+
+        # Construire l'UI étendue
+        h = self._build_expanded_ui()
+
+        # Ajuster la hauteur finale
+        self._window.geometry(f"{EXPANDED_WIDTH}x{h}+{wx}+{wy}")
+        self._window.update_idletasks()
+
+        if is_windows():
+            try:
+                import ctypes
+                hwnd = int(self._window.frame(), 16)
+                user32 = ctypes.windll.user32
+                user32.MoveWindow(hwnd, wx, wy, EXPANDED_WIDTH, h, True)
             except Exception:
                 pass
 
-        # 2. Empêcher pack() de redimensionner la fenêtre à la taille du contenu
-        self._window.pack_propagate(False)
-
-        # 3. Forcer la taille expanded
-        self._window.geometry(f"{EXPANDED_WIDTH}x{EXPANDED_HEIGHT}+{wx}+{wy}")
-        self._window.update()
-
-        # 4. Construire l'UI étendue et calculer la hauteur finale
-        h = self._build_expanded_ui()
-
-        # 5. Ajuster la hauteur et réappliquer la région arrondie
-        self._window.geometry(f"{EXPANDED_WIDTH}x{h}+{wx}+{wy}")
-        self._window.update()
         self._apply_rounded_region(width=EXPANDED_WIDTH, height=h)
+        self._window.update()
+
+        self._rebuilding = False
+        self._start_countdown()
 
         # Binder drag/hover sur tous les widgets du frame expanded
         if hasattr(self, "_expanded_frame"):
@@ -612,26 +654,41 @@ class OverlayWidget:
         _draw_curve(data_7d, OV["accent"])
 
     def _collapse(self) -> None:
-        """Revient à la taille compacte."""
+        """Revient à la taille compacte en recréant la fenêtre."""
         if not self._window:
             return
         wx = self._window.winfo_x()
         wy = self._window.winfo_y()
 
-        for child in self._window.winfo_children():
-            child.destroy()
+        # Détruire et recréer (fiable avec Win32 styles)
+        if self._countdown_job:
+            self._root.after_cancel(self._countdown_job)
+            self._countdown_job = None
+        self._window.destroy()
 
-        # Réactiver pack_propagate pour le mode compact
-        self._window.pack_propagate(True)
+        self._window = tk.Toplevel(self._root)
+        self._window.overrideredirect(True)
+        self._window.attributes("-topmost", True)
+        self._window.configure(bg=OV["card"])
 
         w, h = self._compact_width, self._compact_height
         self._window.geometry(f"{w}x{h}+{wx}+{wy}")
-        self._window.update()
-        self._apply_rounded_region(width=w, height=h)
+
+        if is_windows():
+            self._window.after(50, self._apply_win32_styles)
+            self._window.after(150, self._apply_rounded_region)
+        else:
+            opacity = self._config.get("widget_opacity", 0.95)
+            self._window.attributes("-alpha", opacity)
+            try:
+                self._window.attributes("-type", "dock")
+            except tk.TclError:
+                pass
 
         self._build_compact_ui()
         if self._data:
             self._update_display()
+        self._start_countdown()
 
     # ── Estimation ──────────────────────────────────────────────────
 

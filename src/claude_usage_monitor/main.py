@@ -128,14 +128,18 @@ class Application:
             if self._was_disconnected:
                 interval = RETRY_INTERVAL
             else:
-                config_interval = self.config.get("refresh_interval_seconds", 120)
+                config_interval = self.config.get("refresh_interval_seconds", 300)
                 api_backoff = self.api_client._min_interval
                 interval = max(config_interval, api_backoff)
-            # Dormir par petits incréments pour pouvoir s'arrêter rapidement
-            for _ in range(int(interval)):
+            # Dormir par petits incréments — vérifier si le fichier credentials a changé
+            for i in range(int(interval)):
                 if not self._polling:
                     break
                 time.sleep(1)
+                # Toutes les 5s, vérifier si un nouveau token a été écrit
+                if i > 0 and i % 5 == 0 and self.api_client.credentials_changed():
+                    logger.info("Credentials modifiées — fetch immédiat")
+                    break
 
     def _do_fetch(self, force: bool = False) -> None:
         """Effectue un appel API et met à jour l'UI."""

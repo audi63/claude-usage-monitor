@@ -1,3 +1,3 @@
 """Claude Usage Monitor — Moniteur temps réel des limites d'utilisation Claude."""
 
-__version__ = "2.1.2"
+__version__ = "2.2.0"

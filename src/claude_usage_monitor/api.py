@@ -68,6 +68,25 @@ class ApiClient:
         self._min_interval: float = 60  # secondes min entre appels auto
         self._consecutive_429: int = 0  # compteur de 429 consécutifs pour backoff
         self._first_429_at: float = 0  # timestamp du premier 429 de la série
+        self._last_token: str | None = None  # dernier token utilisé (détecte les rotations)
+        self._creds_mtime: float = 0  # mtime du fichier credentials (détecte les écritures)
+
+    def credentials_changed(self) -> bool:
+        """Vérifie si le fichier credentials a été modifié depuis la dernière lecture.
+
+        Utile pour détecter quand Claude Code ou `claude auth login` écrit
+        un nouveau token — permet de réessayer immédiatement.
+        """
+        try:
+            path = get_credentials_path()
+            if not path.exists():
+                return False
+            mtime = path.stat().st_mtime
+            if mtime > self._creds_mtime:
+                return True
+        except OSError:
+            pass
+        return False
 
     def _read_credentials(self) -> dict | None:
         """Lit le fichier credentials Claude Code avec retry.
@@ -84,6 +103,7 @@ class ApiClient:
                     data = json.load(f)
                 # Vérifier que c'est bien un dict valide avec les clés attendues
                 if isinstance(data, dict) and "claudeAiOauth" in data:
+                    self._creds_mtime = path.stat().st_mtime
                     return data
                 logger.warning("Credentials: format inattendu (tentative %d)", attempt + 1)
             except (json.JSONDecodeError, OSError) as e:
@@ -205,7 +225,15 @@ class ApiClient:
             if not token:
                 return UsageData(error=t("token_missing"), is_disconnected=True)
 
-            # Appel API
+            # Détecter si Claude Code a roté le token (nouveau token = reset 429)
+            if self._last_token and token != self._last_token:
+                logger.info("Token roté par Claude Code — reset du backoff 429")
+                self._consecutive_429 = 0
+                self._min_interval = 60
+            self._last_token = token
+
+            # Appel API — User-Agent claude-code pour obtenir les vrais codes d'erreur
+            # (sans ça, l'API masque les 403 "revoked" derrière des 429 génériques)
             self._last_fetch = time.time()
             resp = requests.get(
                 USAGE_API_URL,
@@ -213,34 +241,65 @@ class ApiClient:
                     "Authorization": f"Bearer {token}",
                     "anthropic-beta": "oauth-2025-04-20",
                     "Content-Type": "application/json",
-                    "User-Agent": "claude-usage-monitor/1.0",
+                    "User-Agent": "claude-code/2.0.31",
                     "Accept": "application/json, text/plain, */*",
+                    "Accept-Encoding": "gzip, compress, deflate, br",
                 },
                 timeout=10,
             )
 
+            # Token révoqué — Claude Code a un nouveau token en mémoire
+            # qui n'a pas encore été écrit dans le fichier
+            if resp.status_code == 403:
+                logger.warning("Token révoqué (403) — en attente d'un nouveau token")
+                self._last_success = False
+                self._min_interval = 30  # Vérifier souvent si le fichier a changé
+                return UsageData(
+                    error=t("token_revoked"),
+                    subscription_type=sub_type,
+                    is_disconnected=True,
+                )
+
             if resp.status_code == 429:
-                # 429 = rate limit partagé avec Claude Code, pas un abus de notre part
                 self._last_success = True
                 self._last_fetch = time.time()
-                now = time.time()
-
-                # Reset le backoff si >10min depuis le premier 429 de la série
-                # (le rate limit API a probablement été libéré entre-temps)
-                if self._first_429_at and (now - self._first_429_at > 600):
-                    self._consecutive_429 = 0
-                    self._first_429_at = now
-
-                if self._consecutive_429 == 0:
-                    self._first_429_at = now
                 self._consecutive_429 += 1
+                logger.info("429 rate limited (x%d)", self._consecutive_429)
 
-                # Backoff progressif mais plafonné : 60s, 120s, max 120s
-                backoff = min(60 * self._consecutive_429, 120)
-                self._min_interval = backoff
-                logger.info("429 rate limited (x%d) — prochain essai dans %ds",
-                            self._consecutive_429, backoff)
-                return UsageData(error=t("rate_limited"), subscription_type=sub_type)
+                # Tentative : essayer de refresh le token nous-mêmes
+                if self._consecutive_429 == 1:
+                    logger.info("429 — tentative de refresh token...")
+                    refreshed = self._refresh_token(creds)
+                    if refreshed:
+                        self._write_credentials(refreshed)
+                        new_token = refreshed["claudeAiOauth"]["accessToken"]
+                        self._last_token = new_token
+                        retry_resp = requests.get(
+                            USAGE_API_URL,
+                            headers={
+                                "Authorization": f"Bearer {new_token}",
+                                "anthropic-beta": "oauth-2025-04-20",
+                                "Content-Type": "application/json",
+                                "User-Agent": "claude-code/2.0.31",
+                                "Accept": "application/json, text/plain, */*",
+                                "Accept-Encoding": "gzip, compress, deflate, br",
+                            },
+                            timeout=10,
+                        )
+                        if retry_resp.status_code == 200:
+                            logger.info("Token rafraîchi — données récupérées !")
+                            self._consecutive_429 = 0
+                            self._min_interval = 60
+                            resp = retry_resp
+                        else:
+                            logger.warning("429 même après refresh (status %d)",
+                                           retry_resp.status_code)
+
+                # Si toujours 429 — backoff et attente d'un nouveau token
+                if resp.status_code == 429:
+                    backoff = min(60 * self._consecutive_429, 300)
+                    self._min_interval = backoff
+                    return UsageData(error=t("rate_limited"), subscription_type=sub_type)
 
             resp.raise_for_status()
             data = resp.json()

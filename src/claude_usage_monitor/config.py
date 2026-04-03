@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_CONFIG: dict[str, Any] = {
-    "refresh_interval_seconds": 120,
+    "refresh_interval_seconds": 300,
     "notification_thresholds": [80, 95],
     "notifications_enabled": True,
     "notify_on_reset": True,
