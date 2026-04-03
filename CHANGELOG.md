@@ -4,6 +4,14 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.1.0] — 2026-04-03
+
+### Corrigé
+- **Processus zombie après "Quitter" (fix définitif)** : la vraie cause était les threads **non-daemon** de pystray (`run_detached()` + `_setup_thread`) qui empêchaient Python de quitter. Le bootloader PyInstaller attendait indéfiniment que le child Python meure.
+  - pystray lancé en **daemon thread** au lieu de `run_detached()`
+  - Séquence d'arrêt propre : watchdog 3s → stop polling/hotkeys → fermer fenêtres → stop pystray → `os._exit(0)`
+  - Suppression de `_force_kill_self()` et du script batch externe (plus nécessaires)
+
 ## [2.0.9] — 2026-04-03
 
 ### Corrigé

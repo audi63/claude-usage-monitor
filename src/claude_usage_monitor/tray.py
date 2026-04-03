@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import signal
+import threading
 import webbrowser
 from typing import TYPE_CHECKING, Callable
 
@@ -200,8 +201,14 @@ class TrayManager:
         return "\n".join(lines)
 
     def run_detached(self) -> None:
-        """Lance le tray icon dans un thread séparé (non-bloquant)."""
-        self._icon.run_detached()
+        """Lance le tray icon dans un thread daemon séparé.
+
+        pystray.run_detached() crée un thread NON-daemon qui empêche
+        le processus Python de quitter. On lance manuellement en daemon
+        pour que os._exit(0) puisse tuer le processus proprement.
+        """
+        t = threading.Thread(target=self._icon.run, daemon=True)
+        t.start()
 
     def stop(self) -> None:
         """Arrête proprement le tray icon et supprime l'icône."""

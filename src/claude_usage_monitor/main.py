@@ -201,57 +201,29 @@ class Application:
         """Toggle le popup détaillé."""
         self.root.after(0, self.popup.toggle)
 
-    @staticmethod
-    def _force_kill_self() -> None:
-        """Tue TOUS les processus claude-usage-monitor via un script externe.
-
-        PyInstaller --onefile crée un arbre complexe (bootloader + enfants).
-        Aucune API interne (os._exit, TerminateProcess) ne tue l'arbre entier
-        de façon fiable. Solution : lancer un script batch DÉTACHÉ qui attend
-        1s puis tue tous les processus par nom d'image.
-        """
-        import platform
-        if platform.system() == "Windows":
-            try:
-                import subprocess
-                import tempfile
-
-                exe_name = "claude-usage-monitor.exe"
-                # Script batch : attend 1s, tue tout, se supprime lui-même
-                bat_content = (
-                    "@echo off\n"
-                    "ping -n 2 127.0.0.1 >nul\n"  # attente ~1s (plus fiable que timeout)
-                    f"taskkill /F /IM {exe_name} >nul 2>&1\n"
-                    "ping -n 2 127.0.0.1 >nul\n"  # 2e attente
-                    f"taskkill /F /IM {exe_name} >nul 2>&1\n"  # 2e passage pour les récalcitrants
-                    'del "%~f0" >nul 2>&1\n'  # auto-suppression du .bat
-                )
-
-                bat_fd, bat_path = tempfile.mkstemp(suffix=".bat", prefix="_cum_quit_")
-                with os.fdopen(bat_fd, "w") as f:
-                    f.write(bat_content)
-
-                # Lancer le .bat dans un processus COMPLÈTEMENT détaché
-                CREATE_NO_WINDOW = 0x08000000
-                subprocess.Popen(
-                    ["cmd.exe", "/c", bat_path],
-                    creationflags=CREATE_NO_WINDOW,
-                    close_fds=True,
-                    start_new_session=True,
-                )
-                logger.info("Script de nettoyage lancé : %s", bat_path)
-            except Exception as e:
-                logger.error("Erreur lancement script quit : %s", e)
-
-        # Sortir immédiatement (le .bat tuera les restes)
-        os._exit(0)
-
     def _toggle_overlay(self, visible: bool) -> None:
         """Toggle le widget overlay always-on-top."""
         self.root.after(0, lambda: self.overlay.show() if visible else self.overlay.hide())
 
     def _quit(self) -> None:
-        """Arrête proprement l'application — tue tous les processus liés."""
+        """Arrête proprement l'application.
+
+        Séquence d'arrêt :
+        1. Watchdog de sécurité (force kill après 3s)
+        2. Stop polling + hotkeys
+        3. Fermer les fenêtres tkinter
+        4. Stop pystray (envoie WM_STOP au message loop)
+        5. Détruire tkinter root
+        6. Attendre que WM_STOP soit traité par pystray
+        7. os._exit(0) — tous les threads sont daemon, le process meurt net
+           → le bootloader PyInstaller détecte la mort du child et quitte aussi
+        """
+        # Watchdog : si l'arrêt prend plus de 3s, forcer la sortie
+        def _watchdog() -> None:
+            time.sleep(3)
+            os._exit(1)
+        threading.Thread(target=_watchdog, daemon=True).start()
+
         logger.info("Arrêt de Claude Usage Monitor...")
         self._polling = False
         unregister_hotkeys()
@@ -263,8 +235,9 @@ class Application:
             self.root.destroy()
         except Exception:
             pass
-        # Tuer notre propre arbre de processus pour éviter les zombies
-        self._force_kill_self()
+        # Laisser le temps à pystray de traiter WM_STOP
+        time.sleep(0.5)
+        os._exit(0)
 
 
 def _kill_existing_instances() -> None:
