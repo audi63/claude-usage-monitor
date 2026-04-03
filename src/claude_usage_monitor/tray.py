@@ -195,7 +195,7 @@ class TrayManager:
         ago = time_ago(data.fetched_at)
         status = f"{sub.capitalize()} | {t('last_update')} {ago}"
         if data.error:
-            status += " | ⚠ 429"
+            status += f" | ⚠ {data.error}"
         lines.append(status)
 
         return "\n".join(lines)

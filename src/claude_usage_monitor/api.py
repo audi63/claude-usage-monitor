@@ -67,6 +67,7 @@ class ApiClient:
         self._last_success: bool = True  # bypass rate limit après erreur
         self._min_interval: float = 60  # secondes min entre appels auto
         self._consecutive_429: int = 0  # compteur de 429 consécutifs pour backoff
+        self._first_429_at: float = 0  # timestamp du premier 429 de la série
 
     def _read_credentials(self) -> dict | None:
         """Lit le fichier credentials Claude Code avec retry.
@@ -219,16 +220,26 @@ class ApiClient:
             )
 
             if resp.status_code == 429:
-                # 429 = API fonctionne mais on appelle trop souvent
+                # 429 = rate limit partagé avec Claude Code, pas un abus de notre part
                 self._last_success = True
                 self._last_fetch = time.time()
+                now = time.time()
+
+                # Reset le backoff si >10min depuis le premier 429 de la série
+                # (le rate limit API a probablement été libéré entre-temps)
+                if self._first_429_at and (now - self._first_429_at > 600):
+                    self._consecutive_429 = 0
+                    self._first_429_at = now
+
+                if self._consecutive_429 == 0:
+                    self._first_429_at = now
                 self._consecutive_429 += 1
-                # Backoff exponentiel : 60s, 120s, 240s, max 300s
-                backoff = min(60 * (2 ** (self._consecutive_429 - 1)), 300)
+
+                # Backoff progressif mais plafonné : 60s, 120s, max 120s
+                backoff = min(60 * self._consecutive_429, 120)
                 self._min_interval = backoff
                 logger.info("429 rate limited (x%d) — prochain essai dans %ds",
                             self._consecutive_429, backoff)
-                # Toujours signaler le 429 pour que l'UI montre la péremption
                 return UsageData(error=t("rate_limited"), subscription_type=sub_type)
 
             resp.raise_for_status()

@@ -4,6 +4,14 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.1.2] — 2026-04-03
+
+### Corrigé
+- **Vue hover tronquée (fix définitif)** : `pack_propagate(False)` empêche tkinter de redimensionner la fenêtre à la taille du contenu compact, `SetWindowRgn(0)` retire le clip Win32 avant l'expansion, dimensions explicites passées partout
+- **Message 429 trompeur** : "Trop de requêtes" remplacé par "API occupée — réessai auto…" (le rate-limit est partagé avec Claude Code, pas un abus de notre app)
+- **Tooltip tray** : affiche le vrai message d'erreur au lieu du "429" hardcodé
+- **Backoff 429 plafonné** : max 120s au lieu de 300s, reset automatique après 10 minutes
+
 ## [2.1.1] — 2026-04-03
 
 ### Corrigé

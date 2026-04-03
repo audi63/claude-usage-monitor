@@ -200,8 +200,15 @@ class OverlayWidget:
         except Exception as e:
             logger.warning("Erreur styles Win32: %s", e)
 
-    def _apply_rounded_region(self, hwnd: int | None = None) -> None:
-        """Applique une région arrondie à la fenêtre via Win32 CreateRoundRectRgn."""
+    def _apply_rounded_region(self, hwnd: int | None = None, *,
+                               width: int | None = None,
+                               height: int | None = None) -> None:
+        """Applique une région arrondie à la fenêtre via Win32 CreateRoundRectRgn.
+
+        Args:
+            hwnd: Handle Win32. Si None, récupéré automatiquement.
+            width/height: Dimensions explicites. Si None, utilise winfo ou fallback.
+        """
         if not is_windows() or not self._window:
             return
         try:
@@ -211,10 +218,9 @@ class OverlayWidget:
             self._window.update_idletasks()
             gdi32 = ctypes.windll.gdi32
             user32 = ctypes.windll.user32
-            w = self._window.winfo_width()
-            h = self._window.winfo_height()
+            w = width or self._window.winfo_width()
+            h = height or self._window.winfo_height()
             if w <= 1 or h <= 1:
-                # Fallback : utiliser les dimensions attendues
                 w = self._width
                 h = self._height
             radius = 16
@@ -440,17 +446,29 @@ class OverlayWidget:
         for child in self._window.winfo_children():
             child.destroy()
 
-        # IMPORTANT : redimensionner la fenêtre AVANT de construire l'UI
-        # sinon les labels se calculent sur la largeur compacte (64px mini / 160px normal)
-        self._window.geometry(f"{EXPANDED_WIDTH}x{EXPANDED_HEIGHT}+{wx}+{wy}")
-        self._window.update_idletasks()
+        # 1. Retirer la région Win32 qui clippe la fenêtre à la taille compacte
+        if is_windows():
+            try:
+                import ctypes
+                hwnd = int(self._window.frame(), 16)
+                ctypes.windll.user32.SetWindowRgn(hwnd, 0, True)
+            except Exception:
+                pass
 
-        # Construire l'UI étendue et ajuster la hauteur finale
+        # 2. Empêcher pack() de redimensionner la fenêtre à la taille du contenu
+        self._window.pack_propagate(False)
+
+        # 3. Forcer la taille expanded
+        self._window.geometry(f"{EXPANDED_WIDTH}x{EXPANDED_HEIGHT}+{wx}+{wy}")
+        self._window.update()
+
+        # 4. Construire l'UI étendue et calculer la hauteur finale
         h = self._build_expanded_ui()
 
+        # 5. Ajuster la hauteur et réappliquer la région arrondie
         self._window.geometry(f"{EXPANDED_WIDTH}x{h}+{wx}+{wy}")
-        self._window.update_idletasks()
-        self._apply_rounded_region()
+        self._window.update()
+        self._apply_rounded_region(width=EXPANDED_WIDTH, height=h)
 
         # Binder drag/hover sur tous les widgets du frame expanded
         if hasattr(self, "_expanded_frame"):
@@ -603,10 +621,13 @@ class OverlayWidget:
         for child in self._window.winfo_children():
             child.destroy()
 
+        # Réactiver pack_propagate pour le mode compact
+        self._window.pack_propagate(True)
+
         w, h = self._compact_width, self._compact_height
         self._window.geometry(f"{w}x{h}+{wx}+{wy}")
-        self._window.update_idletasks()
-        self._apply_rounded_region()
+        self._window.update()
+        self._apply_rounded_region(width=w, height=h)
 
         self._build_compact_ui()
         if self._data:
