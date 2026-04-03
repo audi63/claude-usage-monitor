@@ -4,6 +4,11 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.1.1] — 2026-04-03
+
+### Corrigé
+- **Vue hover tronquée** : largeur expanded augmentée de 260px à 300px pour accommoder les labels longs ("16% — reset dans 1h 40m")
+
 ## [2.1.0] — 2026-04-03
 
 ### Corrigé

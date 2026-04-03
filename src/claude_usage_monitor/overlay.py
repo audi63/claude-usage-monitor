@@ -39,7 +39,7 @@ OVERLAY_HEIGHT = 76
 MINI_WIDTH = 64
 MINI_HEIGHT = 36
 # Mode expanded (hover)
-EXPANDED_WIDTH = 260
+EXPANDED_WIDTH = 300
 EXPANDED_HEIGHT = 200
 
 # Palette Claude overlay
