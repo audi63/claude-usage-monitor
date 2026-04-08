@@ -2,6 +2,11 @@
 
 Moniteur temps réel des limites d'utilisation Claude (Pro/Max) — tray icon dynamique, widget overlay always-on-top, notifications système.
 
+## 💬 Vous avez testé l'app ?
+Partagez votre expérience dans les [Discussions](lien) !
+
+Si vous l'aimez, une ⭐ sur le repo fait vraiment plaisir et aide le projet à grandir : [![GitHub stars](https://img.shields.io/github/stars/audi63/claude-usage-monitor?style=social)](https://github.com/audi63/claude-usage-monitor/stargazers)
+
 ![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)
 ![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D6)
 ![Linux](https://img.shields.io/badge/Linux-compatible-FCC624)
