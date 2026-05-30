@@ -170,7 +170,15 @@ uv pip install pyinstaller
 uv run python build.py
 ```
 
-L'exécutable est généré dans `dist/claude-usage-monitor.exe` (~21 Mo).
+L'exécutable autonome est généré dans `dist/` selon la plateforme **sur laquelle vous lancez le build** (PyInstaller ne fait pas de cross-compilation) :
+
+| Plateforme de build | Sortie | Notes |
+|---|---|---|
+| Windows | `dist/claude-usage-monitor.exe` (~21 Mo) | icône `.ico`, backends `_win32` |
+| Linux | `dist/claude-usage-monitor` (ELF, ~24 Mo) | nécessite `python3-tk` (`sudo apt install python3-tk`) |
+| macOS | `dist/claude-usage-monitor` (Mach-O) | — |
+
+> Pour produire le `.exe` **Windows**, il faut lancer `build.py` **sous Windows**. Sous Ubuntu, vous obtenez un binaire **Linux**.
 
 ## Architecture technique
 
