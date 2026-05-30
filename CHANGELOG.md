@@ -4,6 +4,22 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.3.0] — 2026-05-30
+
+### Ajouté
+- **Présentation « Utilisation du forfait »** : le popup reproduit le panneau natif de Claude — une ligne par quota avec `X % · Réinitialise dans …` et barre de progression colorée, plus un pied « Forfait … · MàJ … »
+- **Quotas par modèle** : affichage de `Sonnet seulement` (`seven_day_sonnet`) et `Opus seulement` (`seven_day_opus`) en plus de la session 5 h et de l'hebdomadaire tous modèles. Les lignes s'affichent dynamiquement selon ce que renvoie l'API (Pro comme Max)
+- **Utilisation supplémentaire** : nouvelle ligne `Utilisation supplémentaire` indiquant les dollars dépensés sur la limite mensuelle (`extra_usage` : `used_credits`/`monthly_limit` en centimes), formatée selon la langue (`19,88 $US sur 30,00 $US`)
+- Ces nouveaux quotas apparaissent aussi dans la vue au survol de l'overlay et dans le tooltip du tray
+
+### Corrigé
+- **Données plus à jour** : intervalle de rafraîchissement par défaut ramené à 60 s (au lieu de 300 s) — aligné sur le minimum client de l'API, donc sans risque de rate-limit supplémentaire — et **fetch à l'ouverture du popup** pour afficher des données fraîches au moment où on regarde, comme le panneau natif
+- **macOS : lecture du Keychain** : Claude Code stocke ses credentials dans le trousseau (`security … -s "Claude Code-credentials"`) et non dans `.credentials.json` — l'app lit désormais le Keychain en priorité (lecture **et** écriture lors d'un refresh de token), ce qui corrige les données absentes/périmées sur macOS
+- **User-Agent dynamique** : `claude-code/<version>` détecté depuis l'installation locale de Claude Code (repli `2.1.4`) au lieu de la valeur figée `2.0.31`
+
+### Note
+- La **fenêtre de contexte** (ex. `401.1k / 1.0M`) visible dans le panneau de Claude Code n'est **pas** reprise : c'est une donnée locale et éphémère propre à chaque session Claude, non exposée par l'API usage — un moniteur externe n'y a pas accès.
+
 ## [2.2.0] — 2026-04-03
 
 ### Corrigé

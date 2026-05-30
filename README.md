@@ -39,7 +39,8 @@ Si vous l'aimez, une ⭐ sur le repo fait vraiment plaisir et aide le projet à 
 - **Tray icon dynamique** : icône avec arc de progression coloré (style Claude, orange #D97744)
 - **Widget overlay** : compact (160×76px), always-on-top, ne vole jamais le focus
 - **Tooltip au survol** : countdown avant reset en temps réel
-- **Popup détaillé** : barres de progression, sparklines 24h, infos abonnement
+- **Panneau « Utilisation du forfait »** : reproduit la présentation native de Claude — session 5 h, hebdomadaire tous modèles, **Sonnet seulement**, **Opus seulement** (Max) et **utilisation supplémentaire** en dollars (`19,88 $US sur 30,00 $US`)
+- **Popup détaillé** : barres de progression, infos abonnement, mise à jour à l'ouverture
 - **Notifications système** : alertes aux seuils configurables (80%, 95%)
 - **Historique** : tendances d'utilisation sur 7 jours avec mini-graphiques
 - **Raccourci clavier** : Ctrl+Shift+U pour toggle le widget overlay
@@ -54,7 +55,9 @@ Si vous l'aimez, une ⭐ sur le repo fait vraiment plaisir et aide le projet à 
 |---|---|---|
 | Windows 10/11 | ✅ Testé | Exécutable `.exe` disponible |
 | Linux (X11) | ✅ Compatible | Nécessite `libappindicator3` |
-| macOS | ⚠️ Partiel | tkinter + pystray fonctionnels, non testé en production |
+| macOS | ⚠️ Partiel | Credentials lus depuis le Keychain (comme Claude Code) ; non testé en production |
+
+> **À noter** : la *fenêtre de contexte* (ex. `401.1k / 1.0M`) affichée dans le panneau de Claude Code n'est pas reprise — c'est une donnée locale et éphémère propre à chaque session Claude, non exposée par l'API d'utilisation. Le moniteur affiche tout le reste du forfait.
 
 ## Prérequis
 

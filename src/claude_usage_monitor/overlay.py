@@ -25,7 +25,8 @@ from claude_usage_monitor.history import get_sparkline_data, load_history
 from claude_usage_monitor.screens import clamp_position, get_preset_position
 from claude_usage_monitor.i18n import t
 from claude_usage_monitor.utils import (
-    format_countdown,
+    format_countdown_short,
+    format_dollars,
     is_windows,
     time_ago,
 )
@@ -525,48 +526,43 @@ class OverlayWidget:
         self._expanded_frame = frame
 
         pad = 10
-        y_offset = pad
+        first = True
 
-        # --- Ligne session 5h ---
+        # --- Lignes de quota (5h, hebdo, Sonnet, Opus) ---
+        def _right(window) -> str:
+            cd = format_countdown_short(window.resets_at)
+            return f"{window.percentage:.0f}% · {t('resets_in', time=cd)}"
+
+        windows = []
         if data.five_hour:
-            pct = data.five_hour.percentage
-            cd = format_countdown(data.five_hour.resets_at)
-            row = tk.Frame(frame, bg=OV["card"])
-            row.pack(fill="x", padx=pad, pady=(y_offset, 2))
-            tk.Label(row, text=t("session_5h"), bg=OV["card"], fg=OV["fg_dim"],
-                     font=("Segoe UI", 9), anchor="w").pack(side="left")
-            tk.Label(row, text=f"{pct:.0f}% — {t('reset_in', time=cd)}",
-                     bg=OV["card"], fg=OV["fg"],
-                     font=("Segoe UI", 9, "bold"), anchor="e").pack(side="right")
-            # Barre
-            bar_canvas = tk.Canvas(frame, height=6, bg=OV["card"],
-                                   highlightthickness=0, bd=0)
-            bar_canvas.pack(fill="x", padx=pad, pady=(0, 4))
-            bar_canvas.update_idletasks()
-            bw = EXPANDED_WIDTH - 2 * pad
-            bar_canvas.create_rectangle(0, 0, bw, 6, fill=OV["bar_bg"], outline="")
-            fill_w = max(0, int(bw * min(pct, 100) / 100))
-            bar_canvas.create_rectangle(0, 0, fill_w, 6, fill=_bar_color(pct), outline="")
-            y_offset = 2
-
-        # --- Ligne hebdo 7j ---
+            windows.append((t("limit_5h"), _right(data.five_hour),
+                            data.five_hour.percentage))
         if data.seven_day:
-            pct = data.seven_day.percentage
-            cd = format_countdown(data.seven_day.resets_at)
-            row = tk.Frame(frame, bg=OV["card"])
-            row.pack(fill="x", padx=pad, pady=(y_offset, 2))
-            tk.Label(row, text=t("weekly_7d"), bg=OV["card"], fg=OV["fg_dim"],
-                     font=("Segoe UI", 9), anchor="w").pack(side="left")
-            tk.Label(row, text=f"{pct:.0f}% — {t('reset_in', time=cd)}",
-                     bg=OV["card"], fg=OV["fg"],
-                     font=("Segoe UI", 9, "bold"), anchor="e").pack(side="right")
-            bar_canvas = tk.Canvas(frame, height=6, bg=OV["card"],
-                                   highlightthickness=0, bd=0)
-            bar_canvas.pack(fill="x", padx=pad, pady=(0, 4))
-            bw = EXPANDED_WIDTH - 2 * pad
-            bar_canvas.create_rectangle(0, 0, bw, 6, fill=OV["bar_bg"], outline="")
-            fill_w = max(0, int(bw * min(pct, 100) / 100))
-            bar_canvas.create_rectangle(0, 0, fill_w, 6, fill=_bar_color(pct), outline="")
+            windows.append((t("weekly_all"), _right(data.seven_day),
+                            data.seven_day.percentage))
+        if data.seven_day_sonnet:
+            windows.append((t("sonnet_only"), _right(data.seven_day_sonnet),
+                            data.seven_day_sonnet.percentage))
+        if data.seven_day_opus:
+            windows.append((t("opus_only"), _right(data.seven_day_opus),
+                            data.seven_day_opus.percentage))
+
+        for title, right_text, pct in windows:
+            self._expanded_row(frame, pad, title, right_text, pct, first)
+            first = False
+
+        # --- Ligne utilisation supplémentaire ---
+        if data.extra_usage and data.extra_usage.is_enabled:
+            extra = data.extra_usage
+            if extra.limit_dollars is None:
+                right_text = t("extra_unlimited")
+                epct = None
+            else:
+                right_text = t("spent_of",
+                                used=format_dollars(extra.used_dollars),
+                                limit=format_dollars(extra.limit_dollars))
+                epct = extra.percentage
+            self._expanded_row(frame, pad, t("extra_usage"), right_text, epct, first)
 
         # --- Estimation temps restant ---
         eta = self._estimate_time_to_limit()
@@ -593,6 +589,25 @@ class OverlayWidget:
         # Calculer la hauteur
         frame.update_idletasks()
         return frame.winfo_reqheight() + 4
+
+    def _expanded_row(self, frame: tk.Frame, pad: int, title: str,
+                      right_text: str, pct: float | None, first: bool) -> None:
+        """Une ligne quota dans la vue étendue : titre + valeur + barre."""
+        row = tk.Frame(frame, bg=OV["card"])
+        row.pack(fill="x", padx=pad, pady=(pad if first else 2, 2))
+        tk.Label(row, text=title, bg=OV["card"], fg=OV["fg_dim"],
+                 font=("Segoe UI", 9), anchor="w").pack(side="left")
+        tk.Label(row, text=right_text, bg=OV["card"], fg=OV["fg"],
+                 font=("Segoe UI", 9, "bold"), anchor="e").pack(side="right")
+        bar_canvas = tk.Canvas(frame, height=6, bg=OV["card"],
+                               highlightthickness=0, bd=0)
+        bar_canvas.pack(fill="x", padx=pad, pady=(0, 4))
+        bw = EXPANDED_WIDTH - 2 * pad
+        bar_canvas.create_rectangle(0, 0, bw, 6, fill=OV["bar_bg"], outline="")
+        if pct is not None and pct > 0:
+            fill_w = max(0, int(bw * min(pct, 100) / 100))
+            bar_canvas.create_rectangle(0, 0, fill_w, 6,
+                                        fill=_bar_color(pct), outline="")
 
     def _draw_sparkline(self, parent: tk.Frame, pad: int) -> None:
         """Dessine le sparkline dans le frame parent."""

@@ -7,7 +7,7 @@ import logging
 import os
 from pathlib import Path
 
-from claude_usage_monitor.api import UsageData, UsageWindow
+from claude_usage_monitor.api import ExtraUsage, UsageData, UsageWindow
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +16,21 @@ def get_cache_path() -> Path:
     if os.name == "nt":
         return Path(os.environ["USERPROFILE"]) / ".claude" / "usage-monitor-cache.json"
     return Path.home() / ".claude" / "usage-monitor-cache.json"
+
+
+def _window_from(raw: dict | None) -> UsageWindow | None:
+    if not raw:
+        return None
+    return UsageWindow(
+        utilization=raw["utilization"],
+        resets_at=raw["resets_at"],
+    )
+
+
+def _window_to(window: UsageWindow | None) -> dict | None:
+    if not window:
+        return None
+    return {"utilization": window.utilization, "resets_at": window.resets_at}
 
 
 def load() -> UsageData | None:
@@ -33,18 +48,18 @@ def load() -> UsageData | None:
             subscription_type=data.get("subscription_type"),
         )
 
-        if "five_hour" in data and data["five_hour"]:
-            fh = data["five_hour"]
-            result.five_hour = UsageWindow(
-                utilization=fh["utilization"],
-                resets_at=fh["resets_at"],
-            )
+        result.five_hour = _window_from(data.get("five_hour"))
+        result.seven_day = _window_from(data.get("seven_day"))
+        result.seven_day_sonnet = _window_from(data.get("seven_day_sonnet"))
+        result.seven_day_opus = _window_from(data.get("seven_day_opus"))
 
-        if "seven_day" in data and data["seven_day"]:
-            sd = data["seven_day"]
-            result.seven_day = UsageWindow(
-                utilization=sd["utilization"],
-                resets_at=sd["resets_at"],
+        eu = data.get("extra_usage")
+        if eu:
+            result.extra_usage = ExtraUsage(
+                is_enabled=eu.get("is_enabled", False),
+                used_credits=eu.get("used_credits", 0),
+                monthly_limit=eu.get("monthly_limit"),
+                utilization=eu.get("utilization", 0.0),
             )
 
         return result
@@ -66,16 +81,22 @@ def save(usage: UsageData) -> None:
         "subscription_type": usage.subscription_type,
     }
 
-    if usage.five_hour:
-        data["five_hour"] = {
-            "utilization": usage.five_hour.utilization,
-            "resets_at": usage.five_hour.resets_at,
-        }
+    for key, window in (
+        ("five_hour", usage.five_hour),
+        ("seven_day", usage.seven_day),
+        ("seven_day_sonnet", usage.seven_day_sonnet),
+        ("seven_day_opus", usage.seven_day_opus),
+    ):
+        serialized = _window_to(window)
+        if serialized:
+            data[key] = serialized
 
-    if usage.seven_day:
-        data["seven_day"] = {
-            "utilization": usage.seven_day.utilization,
-            "resets_at": usage.seven_day.resets_at,
+    if usage.extra_usage:
+        data["extra_usage"] = {
+            "is_enabled": usage.extra_usage.is_enabled,
+            "used_credits": usage.extra_usage.used_credits,
+            "monthly_limit": usage.extra_usage.monthly_limit,
+            "utilization": usage.extra_usage.utilization,
         }
 
     try:

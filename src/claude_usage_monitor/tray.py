@@ -20,6 +20,7 @@ from claude_usage_monitor.icon_generator import generate_icon
 from claude_usage_monitor.updater import get_available_update, open_update_page
 from claude_usage_monitor.utils import (
     format_countdown,
+    format_dollars,
     format_percentage,
     time_ago,
 )
@@ -190,6 +191,27 @@ class TrayManager:
             pct = format_percentage(data.seven_day.percentage)
             cd = format_countdown(data.seven_day.resets_at)
             lines.append(f"7j: {pct} — {cd}")
+
+        if data.seven_day_sonnet:
+            lines.append(
+                f"{t('sonnet_only')}: "
+                f"{format_percentage(data.seven_day_sonnet.percentage)}"
+            )
+
+        if data.seven_day_opus:
+            lines.append(
+                f"{t('opus_only')}: "
+                f"{format_percentage(data.seven_day_opus.percentage)}"
+            )
+
+        if data.extra_usage and data.extra_usage.is_enabled \
+                and data.extra_usage.limit_dollars is not None:
+            eu = data.extra_usage
+            lines.append(
+                f"{t('extra_usage')}: "
+                f"{format_dollars(eu.used_dollars)} / "
+                f"{format_dollars(eu.limit_dollars)}"
+            )
 
         sub = data.subscription_type or "?"
         ago = time_ago(data.fetched_at)

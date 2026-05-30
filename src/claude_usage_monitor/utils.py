@@ -42,6 +42,21 @@ def format_percentage(pct: float | None) -> str:
     return f"{pct:.0f}%"
 
 
+def format_dollars(amount: float | None) -> str:
+    """Formate un montant en dollars selon la langue active.
+
+    fr/de/es/pt/it : « 19,88 $US ». en : « $19.88 ».
+    """
+    if amount is None:
+        return "—"
+    from claude_usage_monitor.i18n import get_language
+
+    if get_language() == "en":
+        return f"${amount:,.2f}"
+    # Décimale virgule + suffixe $US (style francophone/européen)
+    return f"{amount:.2f}".replace(".", ",") + " $US"
+
+
 def format_countdown(resets_at: float | str | None) -> str:
     """Formate un countdown depuis un timestamp epoch (secondes) ou ISO 8601.
 
@@ -73,6 +88,34 @@ def format_countdown(resets_at: float | str | None) -> str:
     if hours > 0:
         return f"{hours}h {minutes:02d}m"
     return f"{minutes}m"
+
+
+def format_countdown_short(resets_at: float | str | None) -> str:
+    """Countdown concis (une seule unité). Ex: '4h', '2j', '45m', 'expiré'."""
+    if resets_at is None:
+        return "—"
+    if isinstance(resets_at, str):
+        try:
+            dt = datetime.fromisoformat(resets_at.replace("Z", "+00:00"))
+            epoch = dt.timestamp()
+        except ValueError:
+            return "—"
+    else:
+        epoch = resets_at
+
+    remaining = epoch - time.time()
+    if remaining <= 0:
+        return "expiré"
+
+    # Affiche une seule unité, arrondie (style du panneau natif de Claude :
+    # « dans 4h », « dans 2j »).
+    if remaining >= 86400:
+        return f"{round(remaining / 86400)}j"
+    if remaining >= 3600:
+        return f"{round(remaining / 3600)}h"
+    if remaining >= 60:
+        return f"{round(remaining / 60)}m"
+    return f"{int(remaining)}s"
 
 
 def format_countdown_long(resets_at: float | str | None) -> str:

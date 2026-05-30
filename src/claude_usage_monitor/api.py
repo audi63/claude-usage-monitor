@@ -5,9 +5,13 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
+import subprocess
+import sys
 import tempfile
 import time
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 
 import requests
@@ -20,6 +24,78 @@ logger = logging.getLogger(__name__)
 CLAUDE_CODE_CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
 TOKEN_REFRESH_URL = "https://platform.claude.com/v1/oauth/token"
 USAGE_API_URL = "https://api.anthropic.com/api/oauth/usage"
+
+# Header beta OAuth (identique à Claude Code — variable `gf` dans le binaire)
+OAUTH_BETA = "oauth-2025-04-20"
+
+# Version de User-Agent par défaut si Claude Code n'est pas détecté.
+# Claude Code envoie `claude-code/<version>` ; un UA réaliste évite que l'API
+# masque les vrais codes d'erreur (403 « revoked ») derrière des 429 génériques.
+DEFAULT_CLAUDE_CODE_VERSION = "2.1.4"
+
+# Service Keychain macOS utilisé par Claude Code (suffixe vide en production —
+# `OAUTH_FILE_SUFFIX:""`). Le compte est `$USER`.
+MACOS_KEYCHAIN_SERVICE = "Claude Code-credentials"
+
+
+@lru_cache(maxsize=1)
+def detect_claude_code_version() -> str:
+    """Détecte la version de Claude Code installée localement (best-effort).
+
+    Cherche le package.json de @anthropic-ai/claude-code dans les emplacements
+    npm globaux usuels. Retourne DEFAULT_CLAUDE_CODE_VERSION si introuvable.
+    Le résultat est mis en cache (la version ne change pas en cours d'exécution).
+    """
+    candidates: list[Path] = []
+    # node_modules globaux selon plateforme
+    home = Path.home()
+    pkg_rel = Path("@anthropic-ai") / "claude-code" / "package.json"
+    if os.name == "nt":
+        appdata = os.environ.get("APPDATA")
+        if appdata:
+            candidates.append(Path(appdata) / "npm" / "node_modules" / pkg_rel)
+    else:
+        candidates += [
+            Path("/usr/local/lib/node_modules") / pkg_rel,
+            Path("/usr/lib/node_modules") / pkg_rel,
+            Path("/opt/homebrew/lib/node_modules") / pkg_rel,
+            home / ".npm-global" / "lib" / "node_modules" / pkg_rel,
+        ]
+    # Suivre le binaire `claude` s'il est dans le PATH
+    claude_bin = shutil.which("claude")
+    if claude_bin:
+        try:
+            real = Path(claude_bin).resolve()
+            # .../node_modules/@anthropic-ai/claude-code/{cli.js|bin/claude}
+            for parent in real.parents:
+                cand = parent / pkg_rel
+                if cand.exists():
+                    candidates.append(cand)
+                    break
+        except OSError:
+            pass
+    for cand in candidates:
+        try:
+            if cand.exists():
+                version = json.loads(cand.read_text(encoding="utf-8")).get("version")
+                if version:
+                    logger.debug("Claude Code détecté: v%s (%s)", version, cand)
+                    return str(version)
+        except (OSError, json.JSONDecodeError, ValueError):
+            continue
+    return DEFAULT_CLAUDE_CODE_VERSION
+
+
+def _api_headers(token: str) -> dict[str, str]:
+    """Headers identiques à ceux de Claude Code pour l'appel usage."""
+    return {
+        "Authorization": f"Bearer {token}",
+        "anthropic-beta": OAUTH_BETA,
+        "Content-Type": "application/json",
+        "User-Agent": f"claude-code/{detect_claude_code_version()}",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Encoding": "gzip, compress, deflate, br",
+    }
 
 
 @dataclass
@@ -42,11 +118,43 @@ class UsageWindow:
 
 
 @dataclass
+class ExtraUsage:
+    """Utilisation supplémentaire (overage facturé au-delà du forfait).
+
+    Les montants sont fournis par l'API en *centimes* de dollar.
+    """
+
+    is_enabled: bool = False
+    used_credits: int = 0  # centimes
+    monthly_limit: int | None = None  # centimes (None = illimité)
+    utilization: float = 0.0  # 0-100
+
+    @property
+    def used_dollars(self) -> float:
+        return self.used_credits / 100
+
+    @property
+    def limit_dollars(self) -> float | None:
+        if self.monthly_limit is None:
+            return None
+        return self.monthly_limit / 100
+
+    @property
+    def percentage(self) -> float:
+        if self.utilization > 1.0:
+            return self.utilization
+        return self.utilization * 100
+
+
+@dataclass
 class UsageData:
     """Données d'utilisation complètes."""
 
     five_hour: UsageWindow | None = None
     seven_day: UsageWindow | None = None
+    seven_day_sonnet: UsageWindow | None = None  # quota hebdo Sonnet uniquement
+    seven_day_opus: UsageWindow | None = None  # quota hebdo Opus uniquement (Max)
+    extra_usage: ExtraUsage | None = None
     fetched_at: float = field(default_factory=time.time)
     error: str | None = None
     subscription_type: str | None = None
@@ -57,6 +165,56 @@ def get_credentials_path() -> Path:
     if os.name == "nt":
         return Path(os.environ["USERPROFILE"]) / ".claude" / ".credentials.json"
     return Path.home() / ".claude" / ".credentials.json"
+
+
+def _is_macos() -> bool:
+    return sys.platform == "darwin"
+
+
+def _keychain_account() -> str:
+    """Compte Keychain utilisé par Claude Code (`$USER`)."""
+    return os.environ.get("USER") or os.environ.get("LOGNAME") or "claude-code-user"
+
+
+def read_keychain_credentials() -> str | None:
+    """Lit les credentials Claude Code depuis le Keychain macOS.
+
+    Claude Code stocke les credentials dans le trousseau (et NON dans
+    .credentials.json) sur macOS — lire le fichier renvoie des données périmées
+    ou inexistantes. On reproduit la commande exacte de Claude Code.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "security", "find-generic-password",
+                "-a", _keychain_account(),
+                "-w", "-s", MACOS_KEYCHAIN_SERVICE,
+            ],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+    except (OSError, subprocess.SubprocessError) as e:
+        logger.debug("Lecture Keychain échouée: %s", e)
+    return None
+
+
+def write_keychain_credentials(raw_json: str) -> bool:
+    """Écrit les credentials dans le Keychain macOS (refresh de token)."""
+    try:
+        result = subprocess.run(
+            [
+                "security", "add-generic-password", "-U",
+                "-a", _keychain_account(),
+                "-s", MACOS_KEYCHAIN_SERVICE,
+                "-w", raw_json,
+            ],
+            capture_output=True, text=True, timeout=5,
+        )
+        return result.returncode == 0
+    except (OSError, subprocess.SubprocessError) as e:
+        logger.warning("Écriture Keychain échouée: %s", e)
+        return False
 
 
 class ApiClient:
@@ -70,13 +228,25 @@ class ApiClient:
         self._first_429_at: float = 0  # timestamp du premier 429 de la série
         self._last_token: str | None = None  # dernier token utilisé (détecte les rotations)
         self._creds_mtime: float = 0  # mtime du fichier credentials (détecte les écritures)
+        self._creds_token: str | None = None  # dernier token lu (détection macOS Keychain)
 
     def credentials_changed(self) -> bool:
-        """Vérifie si le fichier credentials a été modifié depuis la dernière lecture.
+        """Vérifie si les credentials ont changé depuis la dernière lecture.
 
-        Utile pour détecter quand Claude Code ou `claude auth login` écrit
-        un nouveau token — permet de réessayer immédiatement.
+        Utile pour détecter quand Claude Code ou `claude login` écrit un nouveau
+        token — permet de réessayer immédiatement. Sur macOS (Keychain, pas de
+        mtime) on relit et compare le token.
         """
+        if _is_macos():
+            raw = read_keychain_credentials()
+            if raw:
+                try:
+                    tok = json.loads(raw).get("claudeAiOauth", {}).get("accessToken")
+                    if tok and tok != self._creds_token:
+                        return True
+                except (json.JSONDecodeError, AttributeError):
+                    pass
+            return False
         try:
             path = get_credentials_path()
             if not path.exists():
@@ -89,11 +259,28 @@ class ApiClient:
         return False
 
     def _read_credentials(self) -> dict | None:
-        """Lit le fichier credentials Claude Code avec retry.
+        """Lit les credentials Claude Code (Keychain macOS ou fichier JSON).
 
-        Le fichier peut être temporairement verrouillé ou en cours d'écriture
-        par Claude Code/Desktop — on retente 3 fois avec un court délai.
+        Sur macOS, Claude Code stocke les credentials dans le trousseau ; le
+        fichier .credentials.json y est absent/périmé. On lit donc le Keychain
+        en priorité, avec repli sur le fichier. Le fichier peut être verrouillé
+        pendant une écriture par Claude Code — on retente 3 fois.
         """
+        # macOS : Keychain en priorité
+        if _is_macos():
+            raw = read_keychain_credentials()
+            if raw:
+                try:
+                    data = json.loads(raw)
+                    if isinstance(data, dict) and "claudeAiOauth" in data:
+                        self._creds_token = (
+                            data["claudeAiOauth"].get("accessToken")
+                        )
+                        return data
+                except json.JSONDecodeError as e:
+                    logger.warning("Credentials Keychain illisibles: %s", e)
+            # repli sur le fichier si le Keychain est vide
+
         path = get_credentials_path()
         if not path.exists():
             return None
@@ -104,6 +291,7 @@ class ApiClient:
                 # Vérifier que c'est bien un dict valide avec les clés attendues
                 if isinstance(data, dict) and "claudeAiOauth" in data:
                     self._creds_mtime = path.stat().st_mtime
+                    self._creds_token = data["claudeAiOauth"].get("accessToken")
                     return data
                 logger.warning("Credentials: format inattendu (tentative %d)", attempt + 1)
             except (json.JSONDecodeError, OSError) as e:
@@ -158,7 +346,13 @@ class ApiClient:
             return None
 
     def _write_credentials(self, creds: dict) -> None:
-        """Écrit les credentials de manière atomique avec file lock."""
+        """Écrit les credentials (Keychain macOS ou fichier atomique)."""
+        # macOS : écrire dans le Keychain (source de vérité de Claude Code)
+        if _is_macos():
+            if write_keychain_credentials(json.dumps(creds)):
+                return
+            logger.warning("Écriture Keychain échouée — repli sur le fichier")
+
         path = get_credentials_path()
         try:
             # Écriture atomique : écrire dans un fichier temp puis renommer
@@ -237,14 +431,7 @@ class ApiClient:
             self._last_fetch = time.time()
             resp = requests.get(
                 USAGE_API_URL,
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    "anthropic-beta": "oauth-2025-04-20",
-                    "Content-Type": "application/json",
-                    "User-Agent": "claude-code/2.0.31",
-                    "Accept": "application/json, text/plain, */*",
-                    "Accept-Encoding": "gzip, compress, deflate, br",
-                },
+                headers=_api_headers(token),
                 timeout=10,
             )
 
@@ -276,14 +463,7 @@ class ApiClient:
                         self._last_token = new_token
                         retry_resp = requests.get(
                             USAGE_API_URL,
-                            headers={
-                                "Authorization": f"Bearer {new_token}",
-                                "anthropic-beta": "oauth-2025-04-20",
-                                "Content-Type": "application/json",
-                                "User-Agent": "claude-code/2.0.31",
-                                "Accept": "application/json, text/plain, */*",
-                                "Accept-Encoding": "gzip, compress, deflate, br",
-                            },
+                            headers=_api_headers(new_token),
                             timeout=10,
                         )
                         if retry_resp.status_code == 200:
@@ -304,21 +484,36 @@ class ApiClient:
             resp.raise_for_status()
             data = resp.json()
 
-            # Parser la réponse
+            # Parser la réponse — l'API expose plusieurs fenêtres de quota
+            # (session 5h, hebdo tous modèles, hebdo Sonnet/Opus) plus
+            # l'utilisation supplémentaire facturée (overage).
             result = UsageData(subscription_type=sub_type)
 
-            if "five_hour" in data:
-                fh = data["five_hour"]
-                result.five_hour = UsageWindow(
-                    utilization=fh.get("utilization", 0),
-                    resets_at=fh.get("resets_at", ""),
+            def _window(key: str) -> UsageWindow | None:
+                w = data.get(key)
+                if not isinstance(w, dict):
+                    return None
+                return UsageWindow(
+                    utilization=w.get("utilization", 0) or 0,
+                    resets_at=w.get("resets_at", "") or "",
                 )
 
-            if "seven_day" in data:
-                sd = data["seven_day"]
-                result.seven_day = UsageWindow(
-                    utilization=sd.get("utilization", 0),
-                    resets_at=sd.get("resets_at", ""),
+            result.five_hour = _window("five_hour")
+            result.seven_day = _window("seven_day")
+            result.seven_day_sonnet = _window("seven_day_sonnet")
+            result.seven_day_opus = _window("seven_day_opus")
+
+            eu = data.get("extra_usage")
+            if isinstance(eu, dict):
+                result.extra_usage = ExtraUsage(
+                    is_enabled=bool(eu.get("is_enabled", False)),
+                    used_credits=int(eu.get("used_credits") or 0),
+                    monthly_limit=(
+                        int(eu["monthly_limit"])
+                        if eu.get("monthly_limit") is not None
+                        else None
+                    ),
+                    utilization=float(eu.get("utilization") or 0),
                 )
 
             self._last_success = True

@@ -54,6 +54,15 @@ def save_entry(data: UsageData, retention_days: int = 7) -> None:
         entry["seven_day_pct"] = data.seven_day.percentage
         entry["seven_day_resets_at"] = data.seven_day.resets_at
 
+    if data.seven_day_sonnet:
+        entry["seven_day_sonnet_pct"] = data.seven_day_sonnet.percentage
+
+    if data.seven_day_opus:
+        entry["seven_day_opus_pct"] = data.seven_day_opus.percentage
+
+    if data.extra_usage and data.extra_usage.is_enabled:
+        entry["extra_usage_pct"] = data.extra_usage.percentage
+
     entries = load_history(retention_days)
     entries.append(entry)
 

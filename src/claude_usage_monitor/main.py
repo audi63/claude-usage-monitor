@@ -120,7 +120,7 @@ class Application:
         RETRY_INTERVAL = 15  # secondes entre les tentatives en mode déconnecté
 
         # Attendre un peu avant le premier cycle (le fetch immédiat est déjà planifié)
-        time.sleep(self.config.get("refresh_interval_seconds", 120))
+        time.sleep(self.config.get("refresh_interval_seconds", 60))
 
         while self._polling:
             self._do_fetch()
@@ -157,7 +157,13 @@ class Application:
         """Callback appelé dans le thread principal après réception des données."""
         # Erreur temporaire (429) : garder les % existants mais propager l'erreur
         if data.error and not data.is_disconnected and self.current_data:
-            has_valid = self.current_data.five_hour or self.current_data.seven_day
+            has_valid = (
+                self.current_data.five_hour
+                or self.current_data.seven_day
+                or self.current_data.seven_day_sonnet
+                or self.current_data.seven_day_opus
+                or self.current_data.extra_usage
+            )
             if has_valid:
                 # Garder les données valides mais marquer l'erreur et l'ancienneté
                 self.current_data.error = data.error
@@ -202,8 +208,18 @@ class Application:
         threading.Thread(target=lambda: self._do_fetch(force=True), daemon=True).start()
 
     def _toggle_popup(self) -> None:
-        """Toggle le popup détaillé."""
+        """Toggle le popup détaillé.
+
+        À l'ouverture, déclenche un fetch « doux » (non forcé, donc soumis au
+        rate-limit client de 60s) pour afficher des données fraîches au moment
+        où l'utilisateur regarde — comme le panneau natif de Claude.
+        """
+        was_visible = self.popup.visible
         self.root.after(0, self.popup.toggle)
+        if not was_visible:
+            threading.Thread(
+                target=lambda: self._do_fetch(force=False), daemon=True
+            ).start()
 
     def _toggle_overlay(self, visible: bool) -> None:
         """Toggle le widget overlay always-on-top."""
