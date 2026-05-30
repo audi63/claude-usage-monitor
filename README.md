@@ -20,11 +20,11 @@ Si vous l'aimez, une ⭐ sur le repo fait vraiment plaisir et aide le projet à 
 
 ## Aperçu
 
-| Widget compact | Vue au survol | Mode mini |
-|:-:|:-:|:-:|
-| ![Overlay normal](https://raw.githubusercontent.com/audi63/claude-usage-monitor/main/assets/screenshots/overlay-normal.png) | ![Overlay hover](https://raw.githubusercontent.com/audi63/claude-usage-monitor/main/assets/screenshots/overlay-hover.png) | ![Overlay mini](https://raw.githubusercontent.com/audi63/claude-usage-monitor/main/assets/screenshots/overlay-mini.png) |
+| Widget compact | Mode mini |
+|:-:|:-:|
+| ![Overlay normal](https://raw.githubusercontent.com/audi63/claude-usage-monitor/main/assets/screenshots/overlay-normal.png) | ![Overlay mini](https://raw.githubusercontent.com/audi63/claude-usage-monitor/main/assets/screenshots/overlay-mini.png) |
 
-| Popup (double-clic) | Tooltip systray | Menu tray |
+| Panneau « Utilisation du forfait » (au clic) | Tooltip systray | Menu tray |
 |:-:|:-:|:-:|
 | ![Popup](https://raw.githubusercontent.com/audi63/claude-usage-monitor/main/assets/screenshots/popup.png) | ![Tooltip](https://raw.githubusercontent.com/audi63/claude-usage-monitor/main/assets/screenshots/tray-tooltip.png) | ![Menu](https://raw.githubusercontent.com/audi63/claude-usage-monitor/main/assets/screenshots/tray-menu.png) |
 
@@ -37,10 +37,10 @@ Si vous l'aimez, une ⭐ sur le repo fait vraiment plaisir et aide le projet à 
 ## Fonctionnalités
 
 - **Tray icon dynamique** : icône avec arc de progression coloré (style Claude, orange #D97744)
-- **Widget overlay** : compact (160×76px), always-on-top, ne vole jamais le focus
-- **Tooltip au survol** : countdown avant reset en temps réel
+- **Widget overlay** : compact (160×76px) ou mini (64×36px), always-on-top, ne vole jamais le focus — **taille fixe** (ne se déplace pas)
+- **Tooltip systray** : countdown avant reset en temps réel
+- **Grande vue au clic** : un clic sur l'overlay ouvre le panneau **« Utilisation du forfait »** juste à côté ; il se referme quand la souris quitte sa zone
 - **Panneau « Utilisation du forfait »** : reproduit la présentation native de Claude — session 5 h, hebdomadaire tous modèles, **Sonnet seulement**, **Opus seulement** (Max) et **utilisation supplémentaire** en dollars (`19,88 $US sur 30,00 $US`)
-- **Popup détaillé** : barres de progression, infos abonnement, mise à jour à l'ouverture
 - **Notifications système** : alertes aux seuils configurables (80%, 95%)
 - **Historique** : tendances d'utilisation sur 7 jours avec mini-graphiques
 - **Raccourci clavier** : Ctrl+Shift+U pour toggle le widget overlay

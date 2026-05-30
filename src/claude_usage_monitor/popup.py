@@ -64,23 +64,28 @@ class PopupWindow:
         self._visible = False
         self._data: UsageData | None = None
         self._countdown_job: str | None = None
+        self._autohide_job: str | None = None
         self._drag_data = {"x": 0, "y": 0}
         self._rows: list[dict] = []  # lignes de quota (refs labels + resets_at)
+        self._anchor: tuple[int, int, int, int] | None = None
+        self._mouse_entered = False  # la souris est-elle déjà entrée dans le popup ?
 
     @property
     def visible(self) -> bool:
         return self._visible
 
-    def toggle(self) -> None:
+    def toggle(self, anchor_rect: tuple[int, int, int, int] | None = None) -> None:
         if self._visible:
             self.hide()
         else:
-            self.show()
+            self.show(anchor_rect)
 
-    def show(self) -> None:
+    def show(self, anchor_rect: tuple[int, int, int, int] | None = None) -> None:
         if self._window is not None:
             self._window.destroy()
 
+        self._anchor = anchor_rect
+        self._mouse_entered = False
         self._window = tk.Toplevel(self._root)
         self._window.overrideredirect(True)
         self._window.configure(bg=C["bg"])
@@ -98,11 +103,15 @@ class PopupWindow:
         self._window.bind("<B1-Motion>", self._do_drag)
 
         self._start_countdown()
+        self._autohide_tick()
 
     def hide(self) -> None:
         if self._countdown_job:
             self._root.after_cancel(self._countdown_job)
             self._countdown_job = None
+        if self._autohide_job:
+            self._root.after_cancel(self._autohide_job)
+            self._autohide_job = None
         if self._window:
             self._window.destroy()
             self._window = None
@@ -305,10 +314,12 @@ class PopupWindow:
     # ── Positionnement / taille dynamique ────────────────────────────
 
     def _reposition(self) -> None:
-        """Ajuste la taille au contenu et place le popup en bas à droite.
+        """Ajuste la taille au contenu et place le popup.
 
-        La largeur s'adapte au contenu (max avec POPUP_WIDTH) pour éviter tout
-        chevauchement titre/valeur même avec des libellés longs (allemand…).
+        Si un overlay d'ancrage est fourni, le popup s'ouvre juste à côté
+        (du côté opposé au bord le plus proche, pour rester visible). Sinon,
+        il se place en bas à droite de l'écran (ouverture depuis le tray).
+        La largeur s'adapte au contenu pour éviter tout chevauchement.
         """
         if not self._window:
             return
@@ -317,12 +328,54 @@ class PopupWindow:
         w = max(POPUP_WIDTH, self._window.winfo_reqwidth())
         screen_w = self._root.winfo_screenwidth()
         screen_h = self._root.winfo_screenheight()
-        x = screen_w - w - 20
-        y = screen_h - h - 80
+
+        if self._anchor:
+            ax, ay, aw, ah = self._anchor
+            left_x = ax - w - 8          # à gauche de l'overlay
+            right_x = ax + aw + 8        # à droite de l'overlay
+            fits_left = left_x >= 8
+            fits_right = right_x + w <= screen_w - 8
+            # Côté préféré selon la position de l'overlay, avec bascule si
+            # le côté préféré ne tient pas et que l'autre oui.
+            prefer_left = ax + aw / 2 > screen_w / 2
+            if prefer_left:
+                x = left_x if fits_left else (right_x if fits_right else left_x)
+            else:
+                x = right_x if fits_right else (left_x if fits_left else right_x)
+            y = ay
+            x = max(8, min(x, screen_w - w - 8))
+            y = max(8, min(y, screen_h - h - 8))
+        else:
+            x = screen_w - w - 20
+            y = screen_h - h - 80
+
         self._window.geometry(f"{w}x{h}+{x}+{y}")
         # Les barres ont besoin de la largeur réelle des canvas
         self._window.update_idletasks()
         self._redraw_bars()
+
+    def _autohide_tick(self) -> None:
+        """Ferme le popup une fois que la souris l'a survolé puis quitté.
+
+        On attend que la souris soit entrée au moins une fois (le popup
+        s'ouvre à côté de l'overlay, pas sous le curseur) avant d'armer la
+        fermeture — ainsi il ne se ferme pas immédiatement.
+        """
+        if not self._visible or not self._window:
+            return
+        try:
+            px, py = self._window.winfo_pointerxy()
+            wx, wy = self._window.winfo_rootx(), self._window.winfo_rooty()
+            ww, wh = self._window.winfo_width(), self._window.winfo_height()
+            inside = (wx <= px <= wx + ww) and (wy <= py <= wy + wh)
+            if inside:
+                self._mouse_entered = True
+            elif self._mouse_entered:
+                self.hide()
+                return
+        except tk.TclError:
+            return
+        self._autohide_job = self._root.after(250, self._autohide_tick)
 
     # ── Countdown (mise à jour des « Réinitialise dans … ») ──────────
 

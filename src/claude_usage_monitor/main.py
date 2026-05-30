@@ -49,7 +49,7 @@ class Application:
         self.overlay = OverlayWidget(
             self.root,
             self.config,
-            on_double_click=self._toggle_popup,
+            on_click=self._open_popup_near,
         )
 
         # Tray icon (créé avant NotificationManager car on a besoin de tray.notify)
@@ -207,19 +207,26 @@ class Application:
         """Force un rafraîchissement immédiat, bypass le rate limit client."""
         threading.Thread(target=lambda: self._do_fetch(force=True), daemon=True).start()
 
-    def _toggle_popup(self) -> None:
-        """Toggle le popup détaillé.
-
-        À l'ouverture, déclenche un fetch « doux » (non forcé, donc soumis au
-        rate-limit client de 60s) pour afficher des données fraîches au moment
-        où l'utilisateur regarde — comme le panneau natif de Claude.
-        """
-        was_visible = self.popup.visible
-        self.root.after(0, self.popup.toggle)
+    def _soft_fetch_if_opening(self, was_visible: bool) -> None:
+        """Déclenche un fetch « doux » (non forcé, soumis au rate-limit client
+        de 60s) à l'ouverture du popup, pour des données fraîches au moment où
+        l'utilisateur regarde — comme le panneau natif de Claude."""
         if not was_visible:
             threading.Thread(
                 target=lambda: self._do_fetch(force=False), daemon=True
             ).start()
+
+    def _toggle_popup(self) -> None:
+        """Toggle le popup détaillé (ouverture depuis le tray, en bas à droite)."""
+        was_visible = self.popup.visible
+        self.root.after(0, self.popup.toggle)
+        self._soft_fetch_if_opening(was_visible)
+
+    def _open_popup_near(self, x: int, y: int, w: int, h: int) -> None:
+        """Ouvre/ferme la grande vue juste à côté de l'overlay (clic overlay)."""
+        was_visible = self.popup.visible
+        self.root.after(0, lambda: self.popup.toggle((x, y, w, h)))
+        self._soft_fetch_if_opening(was_visible)
 
     def _toggle_overlay(self, visible: bool) -> None:
         """Toggle le widget overlay always-on-top."""

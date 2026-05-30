@@ -12,6 +12,9 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 - **Utilisation supplémentaire** : nouvelle ligne `Utilisation supplémentaire` indiquant les dollars dépensés sur la limite mensuelle (`extra_usage` : `used_credits`/`monthly_limit` en centimes), formatée selon la langue (`19,88 $US sur 30,00 $US`)
 - Ces nouveaux quotas apparaissent aussi dans la vue au survol de l'overlay et dans le tooltip du tray
 
+### Modifié
+- **Overlay : fin de l'agrandissement au survol** : l'overlay garde désormais toujours sa taille compacte et **ne se déplace plus** (le problème survenait surtout en mode mini collé à un bord). La « grande vue » s'ouvre désormais **au clic**, **à côté** de l'overlay (du côté qui reste visible), et se referme automatiquement quand la souris quitte sa zone. Le glisser-déposer pour repositionner l'overlay reste disponible.
+
 ### Corrigé
 - **Données plus à jour** : intervalle de rafraîchissement par défaut ramené à 60 s (au lieu de 300 s) — aligné sur le minimum client de l'API, donc sans risque de rate-limit supplémentaire — et **fetch à l'ouverture du popup** pour afficher des données fraîches au moment où on regarde, comme le panneau natif
 - **macOS : lecture du Keychain** : Claude Code stocke ses credentials dans le trousseau (`security … -s "Claude Code-credentials"`) et non dans `.credentials.json` — l'app lit désormais le Keychain en priorité (lecture **et** écriture lors d'un refresh de token), ce qui corrige les données absentes/périmées sur macOS
