@@ -11,6 +11,8 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 - **Quotas par modèle** : affichage de `Sonnet seulement` (`seven_day_sonnet`) et `Opus seulement` (`seven_day_opus`) en plus de la session 5 h et de l'hebdomadaire tous modèles. Les lignes s'affichent dynamiquement selon ce que renvoie l'API (Pro comme Max)
 - **Utilisation supplémentaire** : nouvelle ligne `Utilisation supplémentaire` indiquant les dollars dépensés sur la limite mensuelle (`extra_usage` : `used_credits`/`monthly_limit` en centimes), formatée selon la langue (`19,88 $US sur 30,00 $US`)
 - Ces nouveaux quotas apparaissent aussi dans la vue au survol de l'overlay et dans le tooltip du tray
+- **Linux/GNOME : texte dans la barre système** : le pourcentage de la session 5 h s'affiche en texte lisible à côté de l'icône (label AppIndicator natif), comme le nombre gravé dans l'icône sous Windows
+- **CI : build du `.exe` Windows** : workflow GitHub Actions (`build-windows.yml`) qui compile l'exécutable sur un runner Windows et l'attache à la release publiée
 
 ### Modifié
 - **Overlay : fin de l'agrandissement au survol** : l'overlay garde désormais toujours sa taille compacte et **ne se déplace plus** (le problème survenait surtout en mode mini collé à un bord). La « grande vue » s'ouvre désormais **au clic**, **à côté** de l'overlay (du côté qui reste visible), et se referme automatiquement quand la souris quitte sa zone. Le glisser-déposer pour repositionner l'overlay reste disponible.
@@ -19,6 +21,10 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 - **Données plus à jour** : intervalle de rafraîchissement par défaut ramené à 60 s (au lieu de 300 s) — aligné sur le minimum client de l'API, donc sans risque de rate-limit supplémentaire — et **fetch à l'ouverture du popup** pour afficher des données fraîches au moment où on regarde, comme le panneau natif
 - **macOS : lecture du Keychain** : Claude Code stocke ses credentials dans le trousseau (`security … -s "Claude Code-credentials"`) et non dans `.credentials.json` — l'app lit désormais le Keychain en priorité (lecture **et** écriture lors d'un refresh de token), ce qui corrige les données absentes/périmées sur macOS
 - **User-Agent dynamique** : `claude-code/<version>` détecté depuis l'installation locale de Claude Code (repli `2.1.4`) au lieu de la valeur figée `2.0.31`
+- **Linux : crash au démarrage** : le titre de la fenêtre tray (contenant `—`, `⚠`) faisait planter le backend X11 de pystray (`set_wm_name` encode en latin-1). Le titre est désormais translittéré en latin-1 sous Linux (no-op Windows/macOS)
+- **Linux/GNOME : icône invisible** : GNOME ne rend pas le tray XEmbed historique. L'app utilise désormais le backend **AppIndicator** quand il est disponible (prérequis documentés), affiché par l'extension GNOME
+- **Overlay/popup : clignotement à l'ouverture** : la fenêtre apparaissait un instant à sa position par défaut avant de sauter à sa place. Elle est désormais masquée (`withdraw`) pendant construction + positionnement puis affichée (`deiconify`) une fois placée
+- **Menu : état des bascules** : les coches « Mode mini » et « Démarrage auto » reflètent désormais l'état réel et se mettent à jour au clic (`update_menu`)
 
 ### Note
 - La **fenêtre de contexte** (ex. `401.1k / 1.0M`) visible dans le panneau de Claude Code n'est **pas** reprise : c'est une donnée locale et éphémère propre à chaque session Claude, non exposée par l'API usage — un moniteur externe n'y a pas accès.

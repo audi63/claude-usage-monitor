@@ -18,15 +18,24 @@ Si vous l'aimez, une ⭐ sur le repo fait vraiment plaisir et aide le projet à 
 > **Projet publié à titre de présentation et de consultation.**
 > Tous droits réservés. Aucune utilisation, reproduction, modification, redistribution ou exploitation commerciale n'est autorisée sans accord écrit préalable de l'auteur. Voir [LICENSE.md](LICENSE.md).
 
+## ✨ Nouveautés v2.3.0
+
+- **Panneau « Utilisation du forfait » complet** : reproduit le panneau natif de Claude — session 5 h, hebdomadaire tous modèles, **Sonnet seul**, **Opus seul** (Max) et **utilisation supplémentaire** (overage en $), chacun avec barre colorée et compte à rebours de réinitialisation.
+- **Linux / GNOME pris en charge** : icône système via **AppIndicator** (affichée par GNOME) avec le **pourcentage en texte** à côté de l'icône, plus correction du crash de démarrage X11.
+- **Overlay plus stable** : ouverture du panneau sans clignotement, taille fixe (ne se déplace plus), mode mini avec état coché dans le menu.
+- **CI Windows** : le `.exe` est désormais compilé automatiquement et attaché aux releases.
+
+Détail complet dans le [CHANGELOG](CHANGELOG.md).
+
 ## Aperçu
 
-| Widget compact | Mode mini |
-|:-:|:-:|
-| ![Overlay normal](https://raw.githubusercontent.com/audi63/claude-usage-monitor/main/assets/screenshots/overlay-normal.png) | ![Overlay mini](https://raw.githubusercontent.com/audi63/claude-usage-monitor/main/assets/screenshots/overlay-mini.png) |
+**Panneau détaillé « Utilisation du forfait »** (au clic sur l'overlay) — tous les quotas du forfait d'un coup d'œil :
 
-| Panneau « Utilisation du forfait » (au clic) | Tooltip systray | Menu tray |
+![Panneau Utilisation du forfait](https://raw.githubusercontent.com/audi63/claude-usage-monitor/main/assets/screenshots/popup.png)
+
+| Widget compact | Mode mini | Menu tray |
 |:-:|:-:|:-:|
-| ![Popup](https://raw.githubusercontent.com/audi63/claude-usage-monitor/main/assets/screenshots/popup.png) | ![Tooltip](https://raw.githubusercontent.com/audi63/claude-usage-monitor/main/assets/screenshots/tray-tooltip.png) | ![Menu](https://raw.githubusercontent.com/audi63/claude-usage-monitor/main/assets/screenshots/tray-menu.png) |
+| ![Overlay normal](https://raw.githubusercontent.com/audi63/claude-usage-monitor/main/assets/screenshots/overlay-normal.png) | ![Overlay mini](https://raw.githubusercontent.com/audi63/claude-usage-monitor/main/assets/screenshots/overlay-mini.png) | ![Menu](https://raw.githubusercontent.com/audi63/claude-usage-monitor/main/assets/screenshots/tray-menu.png) |
 
 ## Pourquoi ?
 
@@ -54,7 +63,7 @@ Si vous l'aimez, une ⭐ sur le repo fait vraiment plaisir et aide le projet à 
 | Plateforme | Statut | Notes |
 |---|---|---|
 | Windows 10/11 | ✅ Testé | Exécutable `.exe` disponible |
-| Linux (X11) | ✅ Compatible | Nécessite `libappindicator3` |
+| Linux (X11) | ✅ Compatible | GNOME : nécessite AppIndicator (voir prérequis Linux) |
 | macOS | ⚠️ Partiel | Credentials lus depuis le Keychain (comme Claude Code) ; non testé en production |
 
 > **À noter** : la *fenêtre de contexte* (ex. `401.1k / 1.0M`) affichée dans le panneau de Claude Code n'est pas reprise — c'est une donnée locale et éphémère propre à chaque session Claude, non exposée par l'API d'utilisation. Le moniteur affiche tout le reste du forfait.
@@ -70,9 +79,18 @@ Si vous l'aimez, une ⭐ sur le repo fait vraiment plaisir et aide le projet à 
 
 ### Linux uniquement
 
+L'interface utilise **tkinter** et l'icône système passe par **AppIndicator**
+(seul mécanisme affiché par GNOME, qui ne rend pas le tray XEmbed historique).
+Sur Ubuntu 24.04 / GNOME :
+
 ```bash
-sudo apt install libappindicator3-1 gir1.2-appindicator3-0.1
+sudo apt install python3-tk python3-gi \
+  gir1.2-ayatanaappindicator3-0.1 libayatana-appindicator3-1 \
+  gnome-shell-extension-appindicator
 ```
+
+> Après l'installation de l'extension GNOME, se déconnecter/reconnecter (ou
+> l'activer via l'app « Extensions ») pour que l'icône apparaisse dans la barre.
 
 ## Installation
 
@@ -80,12 +98,26 @@ sudo apt install libappindicator3-1 gir1.2-appindicator3-0.1
 
 Télécharger `claude-usage-monitor.exe` depuis la page [Releases](https://github.com/audi63/claude-usage-monitor/releases) et le lancer directement.
 
-### Option 2 : Depuis les sources
+### Option 2 : Linux via PyPI
+
+PyGObject (`gi`) est fourni par le système (`python3-gi`) : l'environnement doit
+donc voir les paquets système. On installe dans un venv `--system-site-packages`
+(un venv pipx isolé ne verrait pas `gi`, donc pas d'icône sur GNOME) :
+
+```bash
+python3 -m venv --system-site-packages ~/.local/claude-usage-monitor
+~/.local/claude-usage-monitor/bin/pip install claude-monitor-usage
+~/.local/claude-usage-monitor/bin/claude-usage-monitor
+```
+
+### Option 3 : Depuis les sources
 
 ```bash
 git clone https://github.com/audi63/claude-usage-monitor.git
 cd claude-usage-monitor
-uv sync
+uv venv --system-site-packages    # Linux : pour voir le gi système (AppIndicator)
+uv pip install -e ".[hotkeys]"
+uv run claude-usage-monitor
 ```
 
 ## Utilisation
@@ -102,11 +134,10 @@ uv run claude-usage-monitor
 
 ### Interactions
 
-- **Clic droit** sur le tray icon → menu contextuel (rafraîchir, overlay, quitter…)
+- **Clic droit** sur le tray icon → menu contextuel (rafraîchir, overlay, mode mini, quitter…)
 - **Clic gauche** sur le tray icon → popup détaillé
-- **Survol** du widget overlay → vue étendue avec barres, countdowns, estimation et sparkline 6h
-- **Double-clic** sur le widget overlay → popup complet avec sparkline 24h et infos abonnement
-- **Glisser-déposer** le widget overlay → repositionner (fonctionne aussi en vue étendue)
+- **Clic** sur le widget overlay → grande vue (panneau « Utilisation du forfait ») ancrée à côté, qui se referme quand la souris quitte la zone
+- **Glisser-déposer** le widget overlay → repositionner (la position est mémorisée)
 - **Ctrl+Shift+U** → afficher/masquer le widget overlay
 
 ## Configuration
