@@ -1,0 +1,42 @@
+name: Build Windows executable
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build .exe (PyInstaller)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Create venv and install deps
+        run: |
+          uv venv
+          uv pip install -e ".[hotkeys]" pyinstaller
+
+      - name: Build executable
+        run: uv run python build.py
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-usage-monitor-windows
+          path: dist/claude-usage-monitor.exe
+
+      - name: Attach to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/claude-usage-monitor.exe
