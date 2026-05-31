@@ -89,8 +89,25 @@ sudo apt install python3-tk python3-gi \
   gnome-shell-extension-appindicator
 ```
 
-> Après l'installation de l'extension GNOME, se déconnecter/reconnecter (ou
-> l'activer via l'app « Extensions ») pour que l'icône apparaisse dans la barre.
+**Activer l'extension AppIndicator.** Sur Ubuntu elle est généralement déjà
+activée. Sinon, activez-la en ligne de commande :
+
+```bash
+gnome-extensions enable ubuntu-appindicators@ubuntu.com
+```
+
+Puis **rechargez GNOME Shell** pour que l'icône apparaisse dans la barre :
+
+- **X11** : `Alt`+`F2`, tapez `r`, puis Entrée.
+- **Wayland** : déconnexion / reconnexion de la session.
+
+> Pour gérer les extensions via une interface graphique, installez l'app
+> « Extension Manager » (elle n'est pas présente par défaut sur Ubuntu) :
+> ```bash
+> sudo apt install gnome-shell-extension-manager
+> ```
+> puis lancez-la avec la commande `extension-manager`. L'extension à activer
+> y est nommée **« Ubuntu AppIndicators »**.
 
 ## Installation
 

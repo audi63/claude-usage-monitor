@@ -4,7 +4,7 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
-## [2.3.0] — 2026-05-30
+## [2.3.0] — 2026-05-31
 
 ### Ajouté
 - **Présentation « Utilisation du forfait »** : le popup reproduit le panneau natif de Claude — une ligne par quota avec `X % · Réinitialise dans …` et barre de progression colorée, plus un pied « Forfait … · MàJ … »
