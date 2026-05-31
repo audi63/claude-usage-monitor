@@ -87,6 +87,10 @@ class PopupWindow:
         self._anchor = anchor_rect
         self._mouse_entered = False
         self._window = tk.Toplevel(self._root)
+        # Masquer pendant construction + positionnement, sinon la fenêtre
+        # apparaît un instant à sa position par défaut (coin) avant de sauter
+        # à sa place définitive (effet de clignotement).
+        self._window.withdraw()
         self._window.overrideredirect(True)
         self._window.configure(bg=C["bg"])
         self._window.attributes("-topmost", True)
@@ -97,6 +101,7 @@ class PopupWindow:
         self._build_ui()
         self._render_rows()
         self._reposition()
+        self._window.deiconify()
         self._visible = True
 
         self._window.bind("<Button-1>", self._start_drag)

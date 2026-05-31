@@ -59,6 +59,7 @@ class Application:
             on_quit=self._quit,
             on_toggle_overlay=self._toggle_overlay,
             on_toggle_mini=lambda: self.root.after(0, self.overlay.toggle_mini),
+            mini_enabled=self.config.get("overlay_mini_mode", False),
         )
 
         # Notifications système

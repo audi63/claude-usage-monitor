@@ -120,6 +120,9 @@ class OverlayWidget:
             self._window.destroy()
 
         self._window = tk.Toplevel(self._root)
+        # Masquer pendant construction + positionnement pour éviter un flash
+        # à la position par défaut avant le placement définitif.
+        self._window.withdraw()
         self._window.overrideredirect(True)
         self._window.attributes("-topmost", True)
 
@@ -141,10 +144,12 @@ class OverlayWidget:
         self._window.geometry(f"{self._width}x{self._height}+{x}+{y}")
 
         self._build_compact_ui()
-        self._visible = True
 
         if self._data:
             self._update_display()
+
+        self._window.deiconify()
+        self._visible = True
 
     def hide(self) -> None:
         if self._window:

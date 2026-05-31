@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import signal
+import sys
 import threading
 import webbrowser
 from typing import TYPE_CHECKING, Callable
@@ -30,6 +31,18 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Le backend X11 de pystray encode le titre de fenêtre (WM_NAME) en latin-1,
+# ce qui fait planter le démarrage si le titre contient des caractères hors
+# latin-1 (—, ⚠, …). Sur Linux on translittère ces caractères ; Windows/macOS
+# gèrent l'unicode nativement.
+_TITLE_TRANSLIT = str.maketrans({"—": "-", "–": "-", "⚠": "!", "…": "..."})
+
+
+def _safe_title(title: str) -> str:
+    if sys.platform in ("win32", "darwin"):
+        return title
+    return title.translate(_TITLE_TRANSLIT).encode("latin-1", "replace").decode("latin-1")
+
 
 class TrayManager:
     """Gère le tray icon système avec tooltip et menu contextuel."""
@@ -41,12 +54,14 @@ class TrayManager:
         on_quit: Callable[[], None],
         on_toggle_overlay: Callable[[bool], None] | None = None,
         on_toggle_mini: Callable[[], None] | None = None,
+        mini_enabled: bool = False,
     ) -> None:
         self._on_refresh = on_refresh
         self._on_toggle_popup = on_toggle_popup
         self._on_quit = on_quit
         self._on_toggle_overlay = on_toggle_overlay
         self._on_toggle_mini = on_toggle_mini
+        self._mini_mode = mini_enabled
         self._overlay_visible = False
         self._autostart_enabled = is_autostart_enabled()
         self._current_data: UsageData | None = None
@@ -55,7 +70,7 @@ class TrayManager:
         self._icon = pystray.Icon(
             name="claude-usage-monitor",
             icon=generate_icon(None),
-            title=f"Claude Usage Monitor — {t('loading')}",
+            title=_safe_title(f"Claude Usage Monitor — {t('loading')}"),
             menu=self._build_menu(),
         )
         self._icon.default_action = self._on_left_click
@@ -71,6 +86,7 @@ class TrayManager:
             Item(
                 "Mode mini",
                 self._handle_toggle_mini,
+                checked=lambda _: self._mini_mode,
             ),
             pystray.Menu.SEPARATOR,
             Item(
@@ -116,8 +132,11 @@ class TrayManager:
     def _handle_toggle_mini(
         self, icon: pystray.Icon = None, item: Item = None
     ) -> None:
+        self._mini_mode = not self._mini_mode
         if self._on_toggle_mini:
             self._on_toggle_mini()
+        if not self._stopped:
+            self._icon.update_menu()
 
     def _handle_toggle_autostart(
         self, icon: pystray.Icon = None, item: Item = None
@@ -128,6 +147,8 @@ class TrayManager:
         else:
             enable_autostart()
             self._autostart_enabled = True
+        if not self._stopped:
+            self._icon.update_menu()
 
     def _handle_open_claude(
         self, icon: pystray.Icon = None, item: Item = None
@@ -166,7 +187,25 @@ class TrayManager:
 
         max_pct = self._get_max_percentage(data)
         self._icon.icon = generate_icon(max_pct)
-        self._icon.title = self._build_tooltip(data)
+        self._icon.title = _safe_title(self._build_tooltip(data))
+        # Label panel = session 5h (la donnée la plus surveillée)
+        five_h = data.five_hour.percentage if data.five_hour else None
+        self._set_panel_label(f"{five_h:.0f}%" if five_h is not None else "")
+
+    def _set_panel_label(self, text: str) -> None:
+        """Affiche un texte lisible à côté de l'icône (barre GNOME).
+
+        pystray n'expose pas de label : on appelle directement set_label() sur
+        l'indicateur Ayatana interne quand il existe (backend AppIndicator,
+        Linux). No-op sur les backends Windows/macOS/xorg.
+        """
+        indicator = getattr(self._icon, "_appindicator", None)
+        if indicator is None:
+            return
+        try:
+            indicator.set_label(text, "100%")
+        except Exception:
+            pass
 
     def _get_max_percentage(self, data: UsageData) -> float | None:
         pcts: list[float] = []
