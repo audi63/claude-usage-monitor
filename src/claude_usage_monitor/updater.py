@@ -3,8 +3,14 @@
 from __future__ import annotations
 
 import logging
+import os
+import subprocess
+import sys
+import tempfile
 import threading
+import time
 import webbrowser
+from pathlib import Path
 from typing import Callable
 
 import requests
@@ -102,3 +108,137 @@ def _is_newer(latest: str, current: str) -> bool:
         return latest_parts > current_parts
     except (ValueError, AttributeError):
         return False
+
+
+# ---------------------------------------------------------------------------
+# Application de la mise à jour (auto-update)
+# ---------------------------------------------------------------------------
+def apply_update(
+    notify_fn: Callable[[str, str], None] | None = None,
+    on_quit: Callable[[], None] | None = None,
+) -> None:
+    """Télécharge et installe la mise à jour (non-bloquant).
+
+    Selon le mode d'installation détecté :
+    - **.exe Windows figé** : télécharge le nouveau .exe et le met en place via un
+      petit script batch qui attend la fermeture de l'app, remplace l'exécutable,
+      puis le relance (avec ``--updated <version>`` → notif au redémarrage).
+    - **pipx** : ``pipx upgrade`` puis invite à redémarrer.
+    - **autre** (sources/éditable) : ouvre la page de release (mise à jour manuelle).
+    """
+    threading.Thread(target=_apply, args=(notify_fn, on_quit), daemon=True).start()
+
+
+def _apply(
+    notify_fn: Callable[[str, str], None] | None,
+    on_quit: Callable[[], None] | None,
+) -> None:
+    version = _update_info.get("version", "")
+    try:
+        if getattr(sys, "frozen", False) and sys.platform == "win32":
+            _apply_windows(version, notify_fn, on_quit)
+        elif _is_pipx_install():
+            _apply_pipx(version, notify_fn)
+        else:
+            if notify_fn:
+                notify_fn("Mise à jour", "Mise à jour manuelle — ouverture de la page de release.")
+            open_update_page()
+    except Exception:
+        logger.exception("Échec de la mise à jour automatique")
+        if notify_fn:
+            notify_fn("Échec de la mise à jour", "Téléchargez la nouvelle version manuellement.")
+        open_update_page()
+
+
+def _release_asset_url(suffix: str) -> str | None:
+    """URL de téléchargement du premier asset de la dernière release dont le nom
+    se termine par ``suffix`` (ex. ``.exe``)."""
+    resp = requests.get(
+        GITHUB_API_LATEST, headers={"Accept": "application/vnd.github+json"}, timeout=10
+    )
+    resp.raise_for_status()
+    for asset in resp.json().get("assets", []):
+        if asset.get("name", "").lower().endswith(suffix):
+            return asset.get("browser_download_url")
+    return None
+
+
+def _download(url: str, dest: Path) -> None:
+    with requests.get(
+        url, stream=True, timeout=120, headers={"User-Agent": "claude-usage-monitor"}
+    ) as r:
+        r.raise_for_status()
+        with open(dest, "wb") as f:
+            for chunk in r.iter_content(chunk_size=65536):
+                if chunk:
+                    f.write(chunk)
+
+
+def _apply_windows(
+    version: str,
+    notify_fn: Callable[[str, str], None] | None,
+    on_quit: Callable[[], None] | None,
+) -> None:
+    if notify_fn:
+        notify_fn("Mise à jour", f"Téléchargement de la v{version}…")
+    url = _release_asset_url(".exe")
+    if not url:
+        raise RuntimeError("Aucun asset .exe dans la dernière release")
+
+    target = Path(sys.executable)
+    tmpdir = Path(tempfile.gettempdir()) / "claude-usage-monitor-update"
+    tmpdir.mkdir(parents=True, exist_ok=True)
+    new_exe = tmpdir / target.name
+    _download(url, new_exe)
+    if new_exe.stat().st_size < 1_000_000:
+        raise RuntimeError("Téléchargement incomplet")
+
+    # Script batch : attend la fin du process courant (l'.exe est alors
+    # déverrouillé), remplace l'exécutable, relance, puis se supprime.
+    pid = os.getpid()
+    bat = tmpdir / "update.bat"
+    bat.write_text(
+        "@echo off\r\n"
+        ":wait\r\n"
+        f'tasklist /FI "PID eq {pid}" | find "{pid}" >nul && '
+        "(ping -n 2 127.0.0.1 >nul & goto wait)\r\n"
+        f'move /y "{new_exe}" "{target}" >nul\r\n'
+        f'start "" "{target}" --updated {version}\r\n'
+        'del "%~f0"\r\n',
+        encoding="utf-8",
+    )
+    if notify_fn:
+        notify_fn("Mise à jour", "Installation et redémarrage…")
+
+    DETACHED_PROCESS = 0x00000008
+    CREATE_NO_WINDOW = 0x08000000
+    subprocess.Popen(
+        ["cmd", "/c", str(bat)],
+        creationflags=DETACHED_PROCESS | CREATE_NO_WINDOW,
+        close_fds=True,
+    )
+    time.sleep(1)
+    if on_quit:
+        on_quit()
+    else:
+        os._exit(0)
+
+
+def _is_pipx_install() -> bool:
+    parts = [p.lower() for p in Path(sys.executable).parts]
+    return "pipx" in parts
+
+
+def _apply_pipx(version: str, notify_fn: Callable[[str, str], None] | None) -> None:
+    if notify_fn:
+        notify_fn("Mise à jour", f"Installation de la v{version} via pipx…")
+    result = subprocess.run(
+        ["pipx", "upgrade", "claude-monitor-usage"],
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"pipx upgrade a échoué : {result.stderr.strip()}")
+    if notify_fn:
+        notify_fn("Mise à jour installée", f"✅ v{version} — redémarrez l'application.")

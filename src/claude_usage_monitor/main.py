@@ -30,7 +30,8 @@ logger = logging.getLogger(__name__)
 class Application:
     """Application principale — orchestre les threads et composants."""
 
-    def __init__(self) -> None:
+    def __init__(self, updated_to: str | None = None) -> None:
+        self._updated_to = updated_to
         self.config = load_config()
         init_i18n(self.config.get("language", "auto"))
         self.api_client = ApiClient()
@@ -81,6 +82,15 @@ class Application:
 
         # Lancer le tray icon (thread séparé)
         self.tray.run_detached()
+
+        # Notif post-mise à jour (relancé par le script d'update avec --updated)
+        if self._updated_to:
+            self.root.after(
+                2500,
+                lambda: self.tray.notify(
+                    "Mise à jour installée", f"✅ Mis à jour vers v{self._updated_to}"
+                ),
+            )
 
         # Raccourci clavier global (optionnel)
         hotkey = self.config.get("hotkey_toggle", "ctrl+shift+u")
@@ -393,6 +403,13 @@ def main() -> None:
         print(f"claude-usage-monitor {__version__}")
         return
 
+    # Relance après auto-update : --updated <version> → notif au démarrage
+    updated_to: str | None = None
+    if "--updated" in sys.argv:
+        i = sys.argv.index("--updated")
+        if i + 1 < len(sys.argv):
+            updated_to = sys.argv[i + 1]
+
     # Logging (avant single instance pour avoir les logs). Fichier en plus du
     # flux standard : indispensable pour diagnostiquer le .exe Windows (sans
     # console, les logs seraient sinon perdus). → ~/.claude/usage-monitor.log
@@ -420,7 +437,7 @@ def main() -> None:
         print("Claude Usage Monitor : impossible de prendre le contrôle.")
         sys.exit(1)
 
-    app = Application()
+    app = Application(updated_to=updated_to)
     app.run()
 
 
