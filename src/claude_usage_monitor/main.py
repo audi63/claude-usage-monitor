@@ -13,10 +13,11 @@ from claude_usage_monitor import __version__
 from claude_usage_monitor.api import ApiClient, UsageData
 from claude_usage_monitor.cache import load as load_cache
 from claude_usage_monitor.cache import save as save_cache
-from claude_usage_monitor.config import load_config, save_config
-from claude_usage_monitor.i18n import init_i18n, t
+from claude_usage_monitor.config import load_config
 from claude_usage_monitor.history import save_entry as save_history
-from claude_usage_monitor.hotkeys import register_hotkey, unregister_all as unregister_hotkeys
+from claude_usage_monitor.hotkeys import register_hotkey
+from claude_usage_monitor.hotkeys import unregister_all as unregister_hotkeys
+from claude_usage_monitor.i18n import init_i18n, t
 from claude_usage_monitor.notifications import NotificationManager
 from claude_usage_monitor.overlay import OverlayWidget
 from claude_usage_monitor.popup import PopupWindow
@@ -274,7 +275,6 @@ def _kill_existing_instances() -> None:
     if platform.system() != "Windows":
         return
     try:
-        import ctypes
         import subprocess
         current_pid = os.getpid()
         # Trouver tous les processus claude-usage-monitor
@@ -324,12 +324,13 @@ def _acquire_single_instance() -> bool:
     if platform.system() == "Windows":
         try:
             import ctypes
-            _mutex = ctypes.windll.kernel32.CreateMutexW(None, True, "ClaudeUsageMonitor_SingleInstance")
+            mutex_name = "ClaudeUsageMonitor_SingleInstance"
+            _mutex = ctypes.windll.kernel32.CreateMutexW(None, True, mutex_name)
             if ctypes.windll.kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
                 # Ancienne instance détectée — la tuer et réessayer
                 ctypes.windll.kernel32.CloseHandle(_mutex)
                 _kill_existing_instances()
-                _mutex = ctypes.windll.kernel32.CreateMutexW(None, True, "ClaudeUsageMonitor_SingleInstance")
+                _mutex = ctypes.windll.kernel32.CreateMutexW(None, True, mutex_name)
                 if ctypes.windll.kernel32.GetLastError() == 183:
                     return False  # Échec même après kill
             # Garder le mutex vivant en l'attachant au module

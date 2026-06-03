@@ -22,8 +22,8 @@ from PIL import Image, ImageTk
 
 from claude_usage_monitor.api import UsageData
 from claude_usage_monitor.config import save_config
-from claude_usage_monitor.screens import clamp_position, get_preset_position
 from claude_usage_monitor.i18n import t
+from claude_usage_monitor.screens import clamp_position, get_preset_position
 from claude_usage_monitor.utils import is_windows
 
 logger = logging.getLogger(__name__)

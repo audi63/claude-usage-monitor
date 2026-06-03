@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import logging
-import os
-import signal
 import sys
 import threading
 import webbrowser
@@ -15,7 +13,7 @@ from pystray import MenuItem as Item
 
 from claude_usage_monitor import __version__
 from claude_usage_monitor.api import UsageData
-from claude_usage_monitor.autostart import is_autostart_enabled, enable_autostart, disable_autostart
+from claude_usage_monitor.autostart import disable_autostart, enable_autostart, is_autostart_enabled
 from claude_usage_monitor.i18n import t
 from claude_usage_monitor.icon_generator import generate_icon
 from claude_usage_monitor.updater import get_available_update, open_update_page
@@ -27,7 +25,7 @@ from claude_usage_monitor.utils import (
 )
 
 if TYPE_CHECKING:
-    from PIL import Image
+    pass
 
 logger = logging.getLogger(__name__)
 

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 from PIL import Image, ImageDraw, ImageFont
 
 ICON_SIZE = 64
