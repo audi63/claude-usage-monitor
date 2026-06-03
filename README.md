@@ -18,8 +18,9 @@ Si vous l'aimez, une ⭐ sur le repo fait vraiment plaisir et aide le projet à 
 > **Projet publié à titre de présentation et de consultation.**
 > Tous droits réservés. Aucune utilisation, reproduction, modification, redistribution ou exploitation commerciale n'est autorisée sans accord écrit préalable de l'auteur. Voir [LICENSE.md](LICENSE.md).
 
-## ✨ Nouveautés v2.5
+## ✨ Nouveautés v2.6
 
+- **Mise à jour automatique** : depuis le menu « Mettre à jour → vX.Y.Z », l'app télécharge et installe elle-même la nouvelle version (fini le téléchargement manuel sur GitHub), puis invite à la relancer.
 - **Windows : icône systray fiable** — correction du bug où l'icône disparaissait après quitter/relancer (tooltip trop long refusé par Windows) ; seul l'overlay restait visible.
 - **Mises à jour détectées en continu** : re-vérification périodique (~6 h) → une instance laissée ouverte détecte une nouvelle version sans redémarrage.
 - **Démarrage automatique multi-plateforme** : la bascule « Démarrage auto » du menu fonctionne aussi sous **Linux** (service utilisateur **systemd**), en plus de Windows.
