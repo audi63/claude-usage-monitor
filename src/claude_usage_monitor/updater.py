@@ -174,6 +174,20 @@ def _download(url: str, dest: Path) -> None:
                     f.write(chunk)
 
 
+def _replace_retry(src: Path, dst: Path, tries: int = 15, delay: float = 1.5) -> None:
+    """os.replace avec ré-essais : l'antivirus verrouille brièvement un .exe
+    fraîchement téléchargé (WinError 32). On laisse le temps au scan de finir."""
+    last: Exception | None = None
+    for _ in range(tries):
+        try:
+            os.replace(str(src), str(dst))
+            return
+        except OSError as e:
+            last = e
+            time.sleep(delay)
+    raise last if last else OSError("os.replace a échoué")
+
+
 def _apply_windows(
     version: str,
     notify_fn: Callable[[str, str], None] | None,
@@ -193,48 +207,35 @@ def _apply_windows(
     if new_exe.stat().st_size < 1_000_000:
         raise RuntimeError("Téléchargement incomplet")
 
-    # Aucune opération fichier dans CE process (l'exe courant est verrouillé tant
-    # qu'il tourne). On délègue TOUT au batch, exécuté APRÈS la fermeture de
-    # l'app : il attend que l'app se ferme, écrase l'exe (avec ré-essais, car
-    # l'antivirus verrouille brièvement le .exe fraîchement téléchargé), puis
-    # relance. En cas d'échec persistant, l'exe d'origine reste intact (pas
-    # d'état cassé) — c'est ce qui n'allait pas dans l'approche précédente.
-    log = tmpdir / "update.log"
-    bat = tmpdir / "relaunch.bat"
-    bat.write_text(
-        "@echo off\r\n"
-        f'echo start %date% %time% > "{log}"\r\n'
-        "ping -n 4 127.0.0.1 >nul\r\n"  # laisser l'app se fermer (exe déverrouillé)
-        "set /a n=0\r\n"
-        ":retry\r\n"
-        f'move /y "{new_exe}" "{target}" >> "{log}" 2>&1\r\n'
-        "if not errorlevel 1 goto launch\r\n"
-        "set /a n+=1\r\n"
-        "if %n% GEQ 15 goto launch\r\n"
-        "ping -n 3 127.0.0.1 >nul\r\n"  # antivirus : attendre puis ré-essayer
-        "goto retry\r\n"
-        ":launch\r\n"
-        # Laisser l'antivirus finir de scanner le .exe fraîchement écrit avant de
-        # le relancer : sinon l'extraction onefile (_MEI/python3xx.dll) échoue.
-        "ping -n 16 127.0.0.1 >nul\r\n"
-        f'echo launching (n=%n%) >> "{log}"\r\n'
-        f'start "" "{target}" --updated {version}\r\n'
-        f'echo done >> "{log}"\r\n',
-        encoding="utf-8",
-    )
+    # Remplacement EN PLACE : renommer un .exe en cours d'exécution est autorisé
+    # sous Windows (≠ l'écraser), ce qui libère le nom pour y poser le neuf.
+    # On NE relance PAS automatiquement : relancer un onefile non signé juste
+    # après écriture échoue (course Defender ↔ extraction _MEI/python3xx.dll).
+    # L'utilisateur rouvre l'app — le lancement manuel est fiable. Ré-essais car
+    # l'antivirus verrouille brièvement le .exe fraîchement téléchargé ; si le
+    # 2e move échoue, on restaure le .old pour ne jamais casser l'install.
+    old = target.with_name(target.name + ".old")
+    try:
+        if old.exists():
+            old.unlink()
+    except OSError:
+        pass
+    _replace_retry(target, old)
+    try:
+        _replace_retry(new_exe, target)
+    except OSError:
+        try:
+            os.replace(str(old), str(target))
+        except OSError:
+            pass
+        raise
+
     if notify_fn:
         notify_fn(
             "Mise à jour installée",
-            f"v{version} installée — redémarrage…",
+            f"✅ v{version} installée — fermeture, relancez l'application.",
         )
-
-    CREATE_NO_WINDOW = 0x08000000
-    subprocess.Popen(
-        ["cmd", "/c", str(bat)],
-        creationflags=CREATE_NO_WINDOW,
-        close_fds=True,
-    )
-    time.sleep(1)
+    time.sleep(3)  # laisser la notification s'afficher
     if on_quit:
         on_quit()
     else:
