@@ -68,6 +68,11 @@ def _check(
             logger.info("Version à jour (%s)", current)
             return
 
+        # Éviter de re-notifier à chaque vérification périodique pour une version
+        # déjà signalée (la notif n'apparaît qu'à la première découverte).
+        if _update_info.get("version") == latest_tag:
+            return
+
         release_url = data.get("html_url", "")
         logger.info("Nouvelle version disponible: %s (actuelle: %s)", latest_tag, current)
 

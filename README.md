@@ -18,9 +18,11 @@ Si vous l'aimez, une ⭐ sur le repo fait vraiment plaisir et aide le projet à 
 > **Projet publié à titre de présentation et de consultation.**
 > Tous droits réservés. Aucune utilisation, reproduction, modification, redistribution ou exploitation commerciale n'est autorisée sans accord écrit préalable de l'auteur. Voir [LICENSE.md](LICENSE.md).
 
-## ✨ Nouveautés v2.4
+## ✨ Nouveautés v2.5
 
-- **Démarrage automatique multi-plateforme** : la bascule « Démarrage auto » du menu fonctionne désormais aussi sous **Linux** (service utilisateur **systemd**), en plus de Windows.
+- **Windows : icône systray fiable** — correction du bug où l'icône disparaissait après quitter/relancer (tooltip trop long refusé par Windows) ; seul l'overlay restait visible.
+- **Mises à jour détectées en continu** : re-vérification périodique (~6 h) → une instance laissée ouverte détecte une nouvelle version sans redémarrage.
+- **Démarrage automatique multi-plateforme** : la bascule « Démarrage auto » du menu fonctionne aussi sous **Linux** (service utilisateur **systemd**), en plus de Windows.
 - **Panneau « Utilisation du forfait » complet** : session 5 h, hebdomadaire tous modèles, **Sonnet seul**, **Opus seul** (Max) et **utilisation supplémentaire** (overage en $), chacun avec barre colorée et compte à rebours de réinitialisation.
 - **Linux / GNOME pris en charge** : icône système via **AppIndicator** (affichée par GNOME) avec le **pourcentage en texte** à côté de l'icône.
 - **Overlay plus stable** : ouverture du panneau sans clignotement, taille fixe (ne se déplace plus), mode mini avec état coché dans le menu.

@@ -102,6 +102,9 @@ class Application:
         poll_thread = threading.Thread(target=self._polling_loop, daemon=True)
         poll_thread.start()
 
+        # Re-vérification périodique des mises à jour (instances long-running)
+        threading.Thread(target=self._update_check_loop, daemon=True).start()
+
         # Premier fetch immédiat (pas force=True, le rate limit client protège)
         self.root.after(500, lambda: threading.Thread(
             target=self._do_fetch, daemon=True,
@@ -112,6 +115,25 @@ class Application:
             self.root.mainloop()
         except KeyboardInterrupt:
             self._quit()
+
+    def _update_check_loop(self) -> None:
+        """Re-vérifie périodiquement les mises à jour pendant que l'app tourne.
+
+        Le check initial a lieu au démarrage ; sans cette boucle, une instance
+        laissée ouverte (surtout le .exe Windows figé) ne détecterait une
+        nouvelle release qu'à son prochain lancement. La notification n'apparaît
+        qu'une fois par version (dédoublonnage côté updater).
+        """
+        interval = int(self.config.get("update_check_interval_seconds", 21600))
+        while self._polling:
+            for _ in range(interval):
+                if not self._polling:
+                    return
+                time.sleep(1)
+            check_for_update(
+                notify_fn=self.tray.notify,
+                on_update_found=self.tray.refresh_menu,
+            )
 
     def _polling_loop(self) -> None:
         """Boucle de polling API en arrière-plan.
@@ -371,11 +393,26 @@ def main() -> None:
         print(f"claude-usage-monitor {__version__}")
         return
 
-    # Logging (avant single instance pour avoir les logs)
+    # Logging (avant single instance pour avoir les logs). Fichier en plus du
+    # flux standard : indispensable pour diagnostiquer le .exe Windows (sans
+    # console, les logs seraient sinon perdus). → ~/.claude/usage-monitor.log
+    from logging.handlers import RotatingFileHandler
+    from pathlib import Path
+
+    handlers: list[logging.Handler] = [logging.StreamHandler()]
+    try:
+        log_path = Path.home() / ".claude" / "usage-monitor.log"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        handlers.append(
+            RotatingFileHandler(log_path, maxBytes=512_000, backupCount=2, encoding="utf-8")
+        )
+    except OSError:
+        pass
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%H:%M:%S",
+        handlers=handlers,
     )
 
     # Single instance — tue l'ancienne instance si nécessaire

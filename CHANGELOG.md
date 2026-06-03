@@ -4,6 +4,15 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.5.0] — 2026-06-03
+
+### Corrigé
+- **Windows : icône systray absente après quitter/relancer** (seul l'overlay s'affichait). Cause : le tooltip enrichi (Sonnet/Opus/extra) pouvait dépasser **128 caractères**, limite de `Shell_NotifyIcon` (`NOTIFYICONDATAW.szTip`) → l'icône n'était pas ajoutée du tout. Le titre/tooltip est désormais borné à 127 caractères. (Invisible sous Linux car AppIndicator n'a pas cette limite.)
+
+### Ajouté
+- **Re-vérification périodique des mises à jour** (toutes les ~6 h, `update_check_interval_seconds`) : une instance laissée ouverte — surtout le `.exe` Windows — détecte une nouvelle release sans redémarrage. Notification dédoublonnée (une fois par version).
+- **Journal fichier** : les logs sont aussi écrits dans `~/.claude/usage-monitor.log` (utile pour diagnostiquer le `.exe` Windows, sans console).
+
 ## [2.4.2] — 2026-06-03
 
 ### Modifié

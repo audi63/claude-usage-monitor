@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import sys
 import threading
+import time
 import webbrowser
 from typing import TYPE_CHECKING, Callable
 
@@ -35,11 +36,24 @@ logger = logging.getLogger(__name__)
 # gèrent l'unicode nativement.
 _TITLE_TRANSLIT = str.maketrans({"—": "-", "–": "-", "⚠": "!", "…": "..."})
 
+# Windows borne le tooltip (NOTIFYICONDATAW.szTip) à 128 caractères : au-delà,
+# Shell_NotifyIcon lève ValueError et l'icône n'est PAS ajoutée du tout (seul
+# l'overlay restait visible). On tronque donc toujours, quelle que soit la
+# plateforme, avant d'envoyer le titre à pystray.
+_TITLE_MAX = 127
+
 
 def _safe_title(title: str) -> str:
-    if sys.platform in ("win32", "darwin"):
-        return title
-    return title.translate(_TITLE_TRANSLIT).encode("latin-1", "replace").decode("latin-1")
+    # Translittération latin-1 sous Linux (le backend X11 de pystray plante sur
+    # les caractères hors latin-1). Fait AVANT la troncature pour ne pas
+    # réintroduire un caractère non latin-1 en fin de chaîne.
+    if sys.platform not in ("win32", "darwin"):
+        title = title.translate(_TITLE_TRANSLIT).encode("latin-1", "replace").decode("latin-1")
+    # Troncature en dernier (marqueur ASCII) → résultat garanti <= _TITLE_MAX
+    # sur toutes les plateformes (Windows refuse > 128 et l'icône disparaît).
+    if len(title) > _TITLE_MAX:
+        title = title[: _TITLE_MAX - 3].rstrip() + "..."
+    return title
 
 
 class TrayManager:
@@ -265,9 +279,45 @@ class TrayManager:
         pystray.run_detached() crée un thread NON-daemon qui empêche
         le processus Python de quitter. On lance manuellement en daemon
         pour que os._exit(0) puisse tuer le processus proprement.
+
+        On passe par un callback ``setup`` qui force ``icon.visible = True`` :
+        sous Windows, sans ça, l'icône ne se ré-enregistre pas toujours dans la
+        zone de notification après un quit/relaunch (seul l'overlay s'affichait).
+        Un watchdog (`_ensure_visible`) réessaie si elle n'est pas apparue.
         """
-        t = threading.Thread(target=self._icon.run, daemon=True)
-        t.start()
+
+        def _setup(icon: pystray.Icon) -> None:
+            logger.info("setup tray appelé — ajout de l'icône")
+            try:
+                icon.visible = True
+                logger.info("Tray icon initialisé (visible=%s)", icon.visible)
+            except Exception:
+                logger.exception("setup tray: échec de icon.visible=True (Shell_NotifyIcon ?)")
+
+        def _run() -> None:
+            logger.info("Démarrage du thread tray (backend=%s)", type(self._icon).__module__)
+            try:
+                self._icon.run(setup=_setup)
+                logger.info("run() du tray a retourné (message loop terminé)")
+            except Exception:
+                logger.exception("Thread tray icon interrompu")
+
+        threading.Thread(target=_run, daemon=True).start()
+        threading.Thread(target=self._ensure_visible, daemon=True).start()
+
+    def _ensure_visible(self, tries: int = 5) -> None:
+        """Filet de sécurité (surtout Windows) : re-force la visibilité de
+        l'icône si elle n'est pas apparue (relancement rapide, shell occupé)."""
+        for _ in range(tries):
+            time.sleep(2)
+            if self._stopped:
+                return
+            try:
+                if not getattr(self._icon, "visible", False):
+                    logger.warning("Tray icon non visible — nouvelle tentative")
+                    self._icon.visible = True
+            except Exception as e:  # noqa: BLE001
+                logger.debug("ensure_visible: %s", e)
 
     def stop(self) -> None:
         """Arrête proprement le tray icon et supprime l'icône."""
