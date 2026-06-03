@@ -5,7 +5,7 @@ Moniteur temps réel des limites d'utilisation Claude (Pro/Max) — tray icon dy
 ## 💬 Vous avez testé l'app ?
 Partagez votre expérience dans les [Discussions](lien) !
 
-Si vous l'aimez, une ⭐ sur le repo fait vraiment plaisir et aide le projet à grandir : [![GitHub stars](https://img.shields.io/github/stars/audi63/claude-usage-monitor?style=social&cacheSeconds=3600)](https://github.com/audi63/claude-usage-monitor/stargazers)
+Si vous l'aimez, une ⭐ sur le repo fait vraiment plaisir et aide le projet à grandir : [![GitHub stars](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/audi63/claude-usage-monitor/main/badges/stars.json&style=social&logo=github)](https://github.com/audi63/claude-usage-monitor/stargazers)
 
 ![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)
 ![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D6)
@@ -13,17 +13,18 @@ Si vous l'aimez, une ⭐ sur le repo fait vraiment plaisir et aide le projet à 
 ![macOS](https://img.shields.io/badge/macOS-compatible-999999)
 ![PyPI](https://img.shields.io/pypi/v/claude-monitor-usage)
 ![Tous droits réservés](https://img.shields.io/badge/licence-tous%20droits%20r%C3%A9serv%C3%A9s-red)
-![GitHub Downloads](https://img.shields.io/github/downloads/audi63/claude-usage-monitor/total?label=downloads&cacheSeconds=3600)
+[![PyPI Downloads](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/audi63/claude-usage-monitor/main/badges/pypi_downloads.json&logo=pypi&logoColor=white)](https://pypi.org/project/claude-monitor-usage/)
 
 > **Projet publié à titre de présentation et de consultation.**
 > Tous droits réservés. Aucune utilisation, reproduction, modification, redistribution ou exploitation commerciale n'est autorisée sans accord écrit préalable de l'auteur. Voir [LICENSE.md](LICENSE.md).
 
-## ✨ Nouveautés v2.3.0
+## ✨ Nouveautés v2.4
 
-- **Panneau « Utilisation du forfait » complet** : reproduit le panneau natif de Claude — session 5 h, hebdomadaire tous modèles, **Sonnet seul**, **Opus seul** (Max) et **utilisation supplémentaire** (overage en $), chacun avec barre colorée et compte à rebours de réinitialisation.
-- **Linux / GNOME pris en charge** : icône système via **AppIndicator** (affichée par GNOME) avec le **pourcentage en texte** à côté de l'icône, plus correction du crash de démarrage X11.
+- **Démarrage automatique multi-plateforme** : la bascule « Démarrage auto » du menu fonctionne désormais aussi sous **Linux** (service utilisateur **systemd**), en plus de Windows.
+- **Panneau « Utilisation du forfait » complet** : session 5 h, hebdomadaire tous modèles, **Sonnet seul**, **Opus seul** (Max) et **utilisation supplémentaire** (overage en $), chacun avec barre colorée et compte à rebours de réinitialisation.
+- **Linux / GNOME pris en charge** : icône système via **AppIndicator** (affichée par GNOME) avec le **pourcentage en texte** à côté de l'icône.
 - **Overlay plus stable** : ouverture du panneau sans clignotement, taille fixe (ne se déplace plus), mode mini avec état coché dans le menu.
-- **CI Windows** : le `.exe` est désormais compilé automatiquement et attaché aux releases.
+- **CI Windows** : le `.exe` est compilé automatiquement et attaché aux releases.
 
 Détail complet dans le [CHANGELOG](CHANGELOG.md).
 

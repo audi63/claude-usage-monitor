@@ -1,0 +1,45 @@
+name: Mise à jour des badges
+
+# Met à jour des badges « endpoint » auto-hébergés (stars GitHub + downloads PyPI)
+# dans le dossier badges/. shields.io ne fait que rendre ces JSON → aucune
+# dépendance au pool de tokens partagé de shields, donc fiable et gratuit.
+
+on:
+  schedule:
+    - cron: "23 5 * * *"   # une fois par jour (pypistats a ~1-2 j de latence)
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: badges
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Calculer les compteurs et écrire les JSON
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PYPI_PKG: claude-monitor-usage
+          MIRRORS: "false"   # "true" pour inclure les miroirs (chiffre gonflé, façon pepy)
+        run: python .github/scripts/maj_badges.py
+
+      - name: Commit si changement
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet -- badges; then
+            git add badges
+            git commit -m "chore(badges): maj compteurs"
+            git push
+          else
+            echo "Aucun changement."
+          fi
