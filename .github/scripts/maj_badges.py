@@ -29,7 +29,7 @@ MIRRORS = os.environ.get("MIRRORS", "false").lower() == "true"
 CATEGORY = "with_mirrors" if MIRRORS else "without_mirrors"
 
 
-def _get(url: str, headers: dict[str, str] | None = None, tries: int = 5) -> bytes:
+def _get(url: str, headers: dict[str, str] | None = None, tries: int = 6) -> bytes:
     """GET avec retry/backoff (pypistats limite le débit : 429)."""
     last_err: Exception | None = None
     for i in range(tries):
@@ -40,7 +40,7 @@ def _get(url: str, headers: dict[str, str] | None = None, tries: int = 5) -> byt
         except urllib.error.HTTPError as e:
             last_err = e
             if e.code == 429 and i < tries - 1:
-                time.sleep(5 * (i + 1))
+                time.sleep(8 * (i + 1))
                 continue
             raise
         except urllib.error.URLError as e:
@@ -94,12 +94,19 @@ def update_downloads() -> None:
     last_date = state["last_date"]
     total = int(state["total"])
 
-    series = json.loads(
-        _get(
+    # pypistats limite fortement le débit depuis les IP des runners CI (429).
+    # En cas d'échec on NE casse rien : on garde le dernier total connu et on
+    # réessaiera demain (l'accumulation par curseur rattrape les jours manqués
+    # tant qu'ils restent dans la fenêtre de 180 j).
+    try:
+        raw = _get(
             f"https://pypistats.org/api/packages/{PKG}/overall?mirrors={str(MIRRORS).lower()}",
             headers={"User-Agent": "badge-updater"},
         )
-    )["data"]
+    except Exception as e:  # noqa: BLE001
+        print(f"::warning::pypistats indisponible ({e}) — total PyPI inchangé ({total})")
+        return
+    series = json.loads(raw)["data"]
 
     # Ne compter que les jours COMPLETS (strictement avant aujourd'hui UTC) et
     # non encore comptés (date > curseur).
