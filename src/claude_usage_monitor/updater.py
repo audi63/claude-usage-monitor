@@ -230,35 +230,27 @@ def _apply_windows(
             pass
         raise
 
-    # Relance différée. L'exe est DÉJÀ remplacé en place (valide — le lancement
-    # manuel le prouve). Un petit script attend ~10 s (le temps que l'antivirus
-    # finisse de scanner le nouveau .exe) puis le relance : pas de `move` ici
-    # (c'était la source du verrou/_MEI), juste un `start` après délai ≈ lancement
-    # manuel fiable. Il supprime aussi le .old.
-    log = tmpdir / "update.log"
-    bat = tmpdir / "relaunch.bat"
-    bat.write_text(
-        "@echo off\r\n"
-        f'echo relaunch %date% %time% > "{log}"\r\n'
-        "ping -n 11 127.0.0.1 >nul\r\n"
-        f'start "" "{target}" --updated {version}\r\n'
-        f'del "{old}" >nul 2>&1\r\n'
-        f'echo done >> "{log}"\r\n',
-        encoding="utf-8",
+    # Pas de relance automatique : relancer un onefile non signé juste après
+    # écriture échoue de façon non déterministe (course Defender ↔ extraction
+    # _MEI/python3xx.dll). On affiche une boîte de dialogue Windows (modale,
+    # garantie visible — le toast tray ne s'affichait pas de façon fiable) puis
+    # on ferme l'app. L'utilisateur relance manuellement (fiable). Le .old est
+    # nettoyé au prochain démarrage (cf. main).
+    message = (
+        f"Claude Usage Monitor a été mis à jour vers la version {version}.\n\n"
+        "L'application va se fermer — relancez-la pour utiliser la nouvelle version."
     )
-    if notify_fn:
-        notify_fn(
-            "Mise à jour installée",
-            f"✅ v{version} installée — redémarrage dans ~10 s…",
-        )
+    try:
+        import ctypes
 
-    CREATE_NO_WINDOW = 0x08000000
-    subprocess.Popen(
-        ["cmd", "/c", str(bat)],
-        creationflags=CREATE_NO_WINDOW,
-        close_fds=True,
-    )
-    time.sleep(2)  # laisser la notification s'afficher
+        # MB_ICONINFORMATION (0x40) | MB_TOPMOST (0x40000)
+        ctypes.windll.user32.MessageBoxW(0, message, "Mise à jour installée", 0x40 | 0x40000)
+    except Exception:
+        if notify_fn:
+            notify_fn(
+                "Mise à jour installée",
+                f"v{version} installée — relancez l'application.",
+            )
     if on_quit:
         on_quit()
     else:
