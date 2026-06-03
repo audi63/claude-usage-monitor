@@ -13,7 +13,7 @@ Si vous l'aimez, une ⭐ sur le repo fait vraiment plaisir et aide le projet à 
 ![macOS](https://img.shields.io/badge/macOS-compatible-999999)
 ![PyPI](https://img.shields.io/pypi/v/claude-monitor-usage)
 ![Tous droits réservés](https://img.shields.io/badge/licence-tous%20droits%20r%C3%A9serv%C3%A9s-red)
-![GitHub Downloads](https://img.shields.io/github/downloads/audi63/claude-usage-monitor/total?label=downloads)
+![GitHub Downloads](https://img.shields.io/github/downloads/audi63/claude-usage-monitor/total?label=downloads&cacheSeconds=3600)
 
 > **Projet publié à titre de présentation et de consultation.**
 > Tous droits réservés. Aucune utilisation, reproduction, modification, redistribution ou exploitation commerciale n'est autorisée sans accord écrit préalable de l'auteur. Voir [LICENSE.md](LICENSE.md).
