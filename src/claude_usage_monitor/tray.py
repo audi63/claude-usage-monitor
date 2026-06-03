@@ -274,13 +274,18 @@ class TrayManager:
         """
 
         def _setup(icon: pystray.Icon) -> None:
-            icon.visible = True
-            logger.info("Tray icon initialisé (visible=%s)", icon.visible)
+            logger.info("setup tray appelé — ajout de l'icône")
+            try:
+                icon.visible = True
+                logger.info("Tray icon initialisé (visible=%s)", icon.visible)
+            except Exception:
+                logger.exception("setup tray: échec de icon.visible=True (Shell_NotifyIcon ?)")
 
         def _run() -> None:
             logger.info("Démarrage du thread tray (backend=%s)", type(self._icon).__module__)
             try:
                 self._icon.run(setup=_setup)
+                logger.info("run() du tray a retourné (message loop terminé)")
             except Exception:
                 logger.exception("Thread tray icon interrompu")
 
