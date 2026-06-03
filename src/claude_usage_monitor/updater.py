@@ -214,6 +214,9 @@ def _apply_windows(
         "ping -n 3 127.0.0.1 >nul\r\n"  # antivirus : attendre puis ré-essayer
         "goto retry\r\n"
         ":launch\r\n"
+        # Laisser l'antivirus finir de scanner le .exe fraîchement écrit avant de
+        # le relancer : sinon l'extraction onefile (_MEI/python3xx.dll) échoue.
+        "ping -n 16 127.0.0.1 >nul\r\n"
         f'echo launching (n=%n%) >> "{log}"\r\n'
         f'start "" "{target}" --updated {version}\r\n'
         f'echo done >> "{log}"\r\n',
