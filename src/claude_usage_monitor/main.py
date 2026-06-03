@@ -410,23 +410,30 @@ def main() -> None:
         if i + 1 < len(sys.argv):
             updated_to = sys.argv[i + 1]
 
-    # Logging (avant single instance pour avoir les logs). Fichier en plus du
-    # flux standard : indispensable pour diagnostiquer le .exe Windows (sans
-    # console, les logs seraient sinon perdus). → ~/.claude/usage-monitor.log
+    # Logging. Le journal FICHIER (~/.claude/usage-monitor.log) est **opt-in** :
+    # utile pour diagnostiquer (notamment le .exe Windows, sans console), inutile
+    # pour un utilisateur final. Activé via --debug ou la variable d'env CUM_DEBUG.
     from logging.handlers import RotatingFileHandler
     from pathlib import Path
 
+    debug_log = "--debug" in sys.argv or os.environ.get("CUM_DEBUG", "").strip() not in (
+        "",
+        "0",
+        "false",
+        "False",
+    )
     handlers: list[logging.Handler] = [logging.StreamHandler()]
-    try:
-        log_path = Path.home() / ".claude" / "usage-monitor.log"
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        handlers.append(
-            RotatingFileHandler(log_path, maxBytes=512_000, backupCount=2, encoding="utf-8")
-        )
-    except OSError:
-        pass
+    if debug_log:
+        try:
+            log_path = Path.home() / ".claude" / "usage-monitor.log"
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            handlers.append(
+                RotatingFileHandler(log_path, maxBytes=512_000, backupCount=2, encoding="utf-8")
+            )
+        except OSError:
+            pass
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG if debug_log else logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%H:%M:%S",
         handlers=handlers,
