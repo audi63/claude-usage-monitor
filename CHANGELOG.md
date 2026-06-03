@@ -4,6 +4,11 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.4.1] — 2026-06-03
+
+### Corrigé
+- **Version interne désynchronisée** : `__version__` (dans `__init__.py`) était resté à `2.3.0` alors que la 2.4.0 était publiée — les artefacts 2.4.0 affichaient « v2.3.0 » et proposaient **en boucle** « Mettre à jour vers 2.4.0 ». `__version__` est désormais aligné sur la version du paquet.
+
 ## [2.4.0] — 2026-06-03
 
 ### Corrigé
