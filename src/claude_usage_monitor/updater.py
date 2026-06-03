@@ -230,12 +230,35 @@ def _apply_windows(
             pass
         raise
 
+    # Relance différée. L'exe est DÉJÀ remplacé en place (valide — le lancement
+    # manuel le prouve). Un petit script attend ~10 s (le temps que l'antivirus
+    # finisse de scanner le nouveau .exe) puis le relance : pas de `move` ici
+    # (c'était la source du verrou/_MEI), juste un `start` après délai ≈ lancement
+    # manuel fiable. Il supprime aussi le .old.
+    log = tmpdir / "update.log"
+    bat = tmpdir / "relaunch.bat"
+    bat.write_text(
+        "@echo off\r\n"
+        f'echo relaunch %date% %time% > "{log}"\r\n'
+        "ping -n 11 127.0.0.1 >nul\r\n"
+        f'start "" "{target}" --updated {version}\r\n'
+        f'del "{old}" >nul 2>&1\r\n'
+        f'echo done >> "{log}"\r\n',
+        encoding="utf-8",
+    )
     if notify_fn:
         notify_fn(
             "Mise à jour installée",
-            f"✅ v{version} installée — fermeture, relancez l'application.",
+            f"✅ v{version} installée — redémarrage dans ~10 s…",
         )
-    time.sleep(3)  # laisser la notification s'afficher
+
+    CREATE_NO_WINDOW = 0x08000000
+    subprocess.Popen(
+        ["cmd", "/c", str(bat)],
+        creationflags=CREATE_NO_WINDOW,
+        close_fds=True,
+    )
+    time.sleep(2)  # laisser la notification s'afficher
     if on_quit:
         on_quit()
     else:
