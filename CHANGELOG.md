@@ -4,6 +4,15 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.6.0] — 2026-06-03
+
+### Ajouté
+- **Mise à jour automatique** : depuis le menu « Mettre à jour → vX.Y.Z », l'app **télécharge et installe elle-même** la nouvelle version (plus besoin de la récupérer manuellement sur GitHub). Sous Windows : remplacement de l'exécutable en place (avec ré-essais pour contourner le verrou antivirus, et restauration si échec) ; via pipx : `pipx upgrade`. Une boîte de dialogue invite ensuite à relancer l'application.
+- **Journal de debug optionnel** : le fichier `~/.claude/usage-monitor.log` n'est plus écrit que sur demande (`--debug` ou variable d'environnement `CUM_DEBUG`) — rien n'est journalisé sur disque pour un utilisateur normal.
+
+### Note
+- La **relance n'est pas automatique sous Windows** : relancer un exécutable *onefile non signé* juste après sa réécriture est bloqué de façon non déterministe par l'antivirus (échec d'extraction `_MEI`). L'app affiche donc une fenêtre invitant à la relancer manuellement (le lancement manuel est fiable). Une relance entièrement automatique nécessiterait une **signature de code** du `.exe`.
+
 ## [2.5.0] — 2026-06-03
 
 ### Corrigé

@@ -17,7 +17,7 @@ from claude_usage_monitor.api import UsageData
 from claude_usage_monitor.autostart import disable_autostart, enable_autostart, is_autostart_enabled
 from claude_usage_monitor.i18n import t
 from claude_usage_monitor.icon_generator import generate_icon
-from claude_usage_monitor.updater import get_available_update, open_update_page
+from claude_usage_monitor.updater import apply_update, get_available_update
 from claude_usage_monitor.utils import (
     format_countdown,
     format_dollars,
@@ -180,7 +180,10 @@ class TrayManager:
     def _handle_update(
         self, icon: pystray.Icon = None, item: Item = None
     ) -> None:
-        open_update_page()
+        # Installe la mise à jour (télécharge + remplace + relance) au lieu
+        # d'ouvrir GitHub. Repli automatique sur la page si l'install échoue
+        # ou n'est pas supportée (cf. updater.apply_update).
+        apply_update(notify_fn=self.notify, on_quit=self._on_quit)
 
     def refresh_menu(self) -> None:
         """Reconstruit le menu (ex: après détection d'une mise à jour)."""
@@ -287,7 +290,7 @@ class TrayManager:
         """
 
         def _setup(icon: pystray.Icon) -> None:
-            logger.info("setup tray appelé — ajout de l'icône")
+            logger.debug("setup tray appelé — ajout de l'icône")
             try:
                 icon.visible = True
                 logger.info("Tray icon initialisé (visible=%s)", icon.visible)
@@ -295,10 +298,10 @@ class TrayManager:
                 logger.exception("setup tray: échec de icon.visible=True (Shell_NotifyIcon ?)")
 
         def _run() -> None:
-            logger.info("Démarrage du thread tray (backend=%s)", type(self._icon).__module__)
+            logger.debug("Démarrage du thread tray (backend=%s)", type(self._icon).__module__)
             try:
                 self._icon.run(setup=_setup)
-                logger.info("run() du tray a retourné (message loop terminé)")
+                logger.debug("run() du tray a retourné (message loop terminé)")
             except Exception:
                 logger.exception("Thread tray icon interrompu")
 
