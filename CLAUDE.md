@@ -21,11 +21,14 @@ Quand on publie une version, Claude exécute **toute** la séquence (ne jamais e
    - Le test `tests/test_version.py` échoue si les deux divergent → le lancer.
 2. **Mettre à jour `CHANGELOG.md`** (nouvelle section `## [x.y.z] — AAAA-MM-JJ`) **et le `README.md`** (section « Nouveautés vX.Y », badges) — le README est gravé dans la description PyPI au build : s'il est obsolète au moment de la release, la page PyPI le reste jusqu'à la release suivante.
 3. **Vérifier** : `uv run pytest -q` (tout vert) + `uv run ruff check src/ tests/` (clean).
-   ⚠️ **Tout changement touchant l'UI/le tray se teste sur Windows AVANT release** (Johan
-   a une machine Windows) : les bugs spécifiques Windows (ex. limite `szTip` 128 car. de
-   `Shell_NotifyIcon` qui faisait disparaître l'icône) sont invisibles sous Linux. Build de
-   test : `gh workflow run build-windows.yml --ref <branche>` → artefact `.exe` à valider.
-   Logs Windows dans `~/.claude/usage-monitor.log` (pas de console sur le `.exe`).
+   🚫 **RÈGLE BLOQUANTE — ne JAMAIS release (Windows comme Linux) sans avoir confirmé que
+   l'icône systray apparaît correctement et que l'app est pilotable** (menu accessible).
+   C'est la fonction centrale de l'app. Les bugs de tray sont souvent spécifiques à une
+   plateforme et invisibles sur l'autre (ex. limite `szTip` 128 car. de `Shell_NotifyIcon`
+   sous Windows, jamais reproductible sous Linux/AppIndicator). Donc, pour tout changement
+   touchant l'UI/le tray : build de test `gh workflow run build-windows.yml --ref <branche>`
+   → Johan valide l'icône **sur Windows** (et le tray Linux), AVANT release. Logs Windows
+   dans `~/.claude/usage-monitor.log` (le `.exe` n'a pas de console).
 4. **Commit + push** sur `main` (`chore(release): x.y.z`).
 5. **Créer la release GitHub** : `gh release create vX.Y.Z --target main --title "…" --notes-file …`.
    → déclenche automatiquement :
