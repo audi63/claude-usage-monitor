@@ -4,6 +4,11 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.4.2] — 2026-06-03
+
+### Modifié
+- **Docs** : README à jour (section « Nouveautés v2.4 ») — rafraîchit aussi la description affichée sur PyPI, qui est figée au build de chaque release. Badges *stars* et *downloads* désormais auto-hébergés (workflow `badges.yml` + `endpoint` shields), fiables et sans dépendance à un service tiers.
+
 ## [2.4.1] — 2026-06-03
 
 ### Corrigé

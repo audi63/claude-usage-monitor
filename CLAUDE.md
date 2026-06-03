@@ -19,7 +19,7 @@ Quand on publie une version, Claude exécute **toute** la séquence (ne jamais e
    - `pyproject.toml` → `[project] version`
    - `src/claude_usage_monitor/__init__.py` → `__version__`
    - Le test `tests/test_version.py` échoue si les deux divergent → le lancer.
-2. **Mettre à jour `CHANGELOG.md`** : nouvelle section `## [x.y.z] — AAAA-MM-JJ`.
+2. **Mettre à jour `CHANGELOG.md`** (nouvelle section `## [x.y.z] — AAAA-MM-JJ`) **et le `README.md`** (section « Nouveautés vX.Y », badges) — le README est gravé dans la description PyPI au build : s'il est obsolète au moment de la release, la page PyPI le reste jusqu'à la release suivante.
 3. **Vérifier** : `uv run pytest -q` (tout vert) + `uv run ruff check src/ tests/` (clean).
 4. **Commit + push** sur `main` (`chore(release): x.y.z`).
 5. **Créer la release GitHub** : `gh release create vX.Y.Z --target main --title "…" --notes-file …`.
