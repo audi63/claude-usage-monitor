@@ -393,11 +393,26 @@ def main() -> None:
         print(f"claude-usage-monitor {__version__}")
         return
 
-    # Logging (avant single instance pour avoir les logs)
+    # Logging (avant single instance pour avoir les logs). Fichier en plus du
+    # flux standard : indispensable pour diagnostiquer le .exe Windows (sans
+    # console, les logs seraient sinon perdus). → ~/.claude/usage-monitor.log
+    from logging.handlers import RotatingFileHandler
+    from pathlib import Path
+
+    handlers: list[logging.Handler] = [logging.StreamHandler()]
+    try:
+        log_path = Path.home() / ".claude" / "usage-monitor.log"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        handlers.append(
+            RotatingFileHandler(log_path, maxBytes=512_000, backupCount=2, encoding="utf-8")
+        )
+    except OSError:
+        pass
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%H:%M:%S",
+        handlers=handlers,
     )
 
     # Single instance — tue l'ancienne instance si nécessaire

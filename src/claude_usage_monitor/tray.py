@@ -277,7 +277,14 @@ class TrayManager:
             icon.visible = True
             logger.info("Tray icon initialisé (visible=%s)", icon.visible)
 
-        threading.Thread(target=lambda: self._icon.run(setup=_setup), daemon=True).start()
+        def _run() -> None:
+            logger.info("Démarrage du thread tray (backend=%s)", type(self._icon).__module__)
+            try:
+                self._icon.run(setup=_setup)
+            except Exception:
+                logger.exception("Thread tray icon interrompu")
+
+        threading.Thread(target=_run, daemon=True).start()
         threading.Thread(target=self._ensure_visible, daemon=True).start()
 
     def _ensure_visible(self, tries: int = 5) -> None:
