@@ -8,6 +8,7 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 
 ### Corrigé
 - **Linux : démarrage automatique réellement fonctionnel** : la bascule « Démarrage auto » du menu était inopérante sous Linux (`autostart.py` ne gérait que Windows). Elle installe désormais un **service utilisateur systemd** (`~/.config/systemd/user/claude-usage-monitor.service`) via `systemctl --user enable --now`, et le retire à la désactivation. L'environnement graphique (`DISPLAY`/`WAYLAND_DISPLAY`/`XAUTHORITY`) est capturé à l'activation plutôt que codé en dur, et `ExecStart` cible le binaire figé (PyInstaller) ou l'interpréteur du venv en mode dev.
+- **Template systemd `assets/` corrigé** : l'unit fourni codait en dur `XAUTHORITY=%h/.Xauthority`, chemin **erroné** (GDM place le cookie sous `/run/user/<uid>/gdm/Xauthority`). Les variables d'environnement graphiques sont retirées (importées par la session GNOME dans `systemd --user`) et `PartOf=graphical-session.target` ajouté. README mis à jour : la bascule du menu est la voie recommandée, l'install manuelle reste documentée.
 
 ## [2.3.0] — 2026-05-31
 

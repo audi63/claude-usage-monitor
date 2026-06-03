@@ -205,10 +205,15 @@ Copier `claude-usage-monitor.exe` (ou un raccourci) dans :
 
 ### Linux (systemd)
 
+Le plus simple : activer **« Démarrage auto »** dans le menu de l'application (clic
+sur l'icône du tray). L'app installe alors elle-même un service utilisateur
+systemd, avec les chemins et l'environnement graphique détectés automatiquement.
+
+Installation manuelle équivalente :
+
 ```bash
 cp assets/claude-usage-monitor.service ~/.config/systemd/user/
-systemctl --user enable claude-usage-monitor
-systemctl --user start claude-usage-monitor
+systemctl --user enable --now claude-usage-monitor
 ```
 
 ## Build de l'exécutable

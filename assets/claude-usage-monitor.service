@@ -1,14 +1,20 @@
 [Unit]
 Description=Claude Usage Monitor — Moniteur temps réel des limites d'utilisation Claude
 After=graphical-session.target
+PartOf=graphical-session.target
 
 [Service]
 Type=simple
 ExecStart=%h/.local/bin/uv run --project %h/Projets/claude-usage-monitor claude-usage-monitor
 Restart=on-failure
 RestartSec=10
-Environment=DISPLAY=:0
-Environment=XAUTHORITY=%h/.Xauthority
+# DISPLAY / WAYLAND_DISPLAY / XAUTHORITY sont importés dans l'environnement
+# « systemd --user » par la session GNOME : inutile de les coder en dur (et
+# nuisible — l'ancien XAUTHORITY=%h/.Xauthority était erroné : GDM place le
+# cookie sous /run/user/<uid>/gdm/Xauthority).
+# Plus simple : utiliser la bascule « Démarrage auto » du menu de l'app, qui
+# génère ce service automatiquement (chemins et environnement détectés à
+# l'activation).
 
 [Install]
 WantedBy=graphical-session.target
