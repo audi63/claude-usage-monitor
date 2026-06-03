@@ -36,11 +36,24 @@ logger = logging.getLogger(__name__)
 # gèrent l'unicode nativement.
 _TITLE_TRANSLIT = str.maketrans({"—": "-", "–": "-", "⚠": "!", "…": "..."})
 
+# Windows borne le tooltip (NOTIFYICONDATAW.szTip) à 128 caractères : au-delà,
+# Shell_NotifyIcon lève ValueError et l'icône n'est PAS ajoutée du tout (seul
+# l'overlay restait visible). On tronque donc toujours, quelle que soit la
+# plateforme, avant d'envoyer le titre à pystray.
+_TITLE_MAX = 127
+
 
 def _safe_title(title: str) -> str:
-    if sys.platform in ("win32", "darwin"):
-        return title
-    return title.translate(_TITLE_TRANSLIT).encode("latin-1", "replace").decode("latin-1")
+    # Translittération latin-1 sous Linux (le backend X11 de pystray plante sur
+    # les caractères hors latin-1). Fait AVANT la troncature pour ne pas
+    # réintroduire un caractère non latin-1 en fin de chaîne.
+    if sys.platform not in ("win32", "darwin"):
+        title = title.translate(_TITLE_TRANSLIT).encode("latin-1", "replace").decode("latin-1")
+    # Troncature en dernier (marqueur ASCII) → résultat garanti <= _TITLE_MAX
+    # sur toutes les plateformes (Windows refuse > 128 et l'icône disparaît).
+    if len(title) > _TITLE_MAX:
+        title = title[: _TITLE_MAX - 3].rstrip() + "..."
+    return title
 
 
 class TrayManager:
