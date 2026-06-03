@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import sys
 import threading
+import time
 import webbrowser
 from typing import TYPE_CHECKING, Callable
 
@@ -265,9 +266,33 @@ class TrayManager:
         pystray.run_detached() crée un thread NON-daemon qui empêche
         le processus Python de quitter. On lance manuellement en daemon
         pour que os._exit(0) puisse tuer le processus proprement.
+
+        On passe par un callback ``setup`` qui force ``icon.visible = True`` :
+        sous Windows, sans ça, l'icône ne se ré-enregistre pas toujours dans la
+        zone de notification après un quit/relaunch (seul l'overlay s'affichait).
+        Un watchdog (`_ensure_visible`) réessaie si elle n'est pas apparue.
         """
-        t = threading.Thread(target=self._icon.run, daemon=True)
-        t.start()
+
+        def _setup(icon: pystray.Icon) -> None:
+            icon.visible = True
+            logger.info("Tray icon initialisé (visible=%s)", icon.visible)
+
+        threading.Thread(target=lambda: self._icon.run(setup=_setup), daemon=True).start()
+        threading.Thread(target=self._ensure_visible, daemon=True).start()
+
+    def _ensure_visible(self, tries: int = 5) -> None:
+        """Filet de sécurité (surtout Windows) : re-force la visibilité de
+        l'icône si elle n'est pas apparue (relancement rapide, shell occupé)."""
+        for _ in range(tries):
+            time.sleep(2)
+            if self._stopped:
+                return
+            try:
+                if not getattr(self._icon, "visible", False):
+                    logger.warning("Tray icon non visible — nouvelle tentative")
+                    self._icon.visible = True
+            except Exception as e:  # noqa: BLE001
+                logger.debug("ensure_visible: %s", e)
 
     def stop(self) -> None:
         """Arrête proprement le tray icon et supprime l'icône."""

@@ -102,6 +102,9 @@ class Application:
         poll_thread = threading.Thread(target=self._polling_loop, daemon=True)
         poll_thread.start()
 
+        # Re-vérification périodique des mises à jour (instances long-running)
+        threading.Thread(target=self._update_check_loop, daemon=True).start()
+
         # Premier fetch immédiat (pas force=True, le rate limit client protège)
         self.root.after(500, lambda: threading.Thread(
             target=self._do_fetch, daemon=True,
@@ -112,6 +115,25 @@ class Application:
             self.root.mainloop()
         except KeyboardInterrupt:
             self._quit()
+
+    def _update_check_loop(self) -> None:
+        """Re-vérifie périodiquement les mises à jour pendant que l'app tourne.
+
+        Le check initial a lieu au démarrage ; sans cette boucle, une instance
+        laissée ouverte (surtout le .exe Windows figé) ne détecterait une
+        nouvelle release qu'à son prochain lancement. La notification n'apparaît
+        qu'une fois par version (dédoublonnage côté updater).
+        """
+        interval = int(self.config.get("update_check_interval_seconds", 21600))
+        while self._polling:
+            for _ in range(interval):
+                if not self._polling:
+                    return
+                time.sleep(1)
+            check_for_update(
+                notify_fn=self.tray.notify,
+                on_update_found=self.tray.refresh_menu,
+            )
 
     def _polling_loop(self) -> None:
         """Boucle de polling API en arrière-plan.
