@@ -206,16 +206,16 @@ def _apply_windows(
     os.replace(str(target), str(old))  # renomme l'exe courant
     os.replace(str(new_exe), str(target))  # met le nouveau à la place
 
-    pid = os.getpid()
+    # L'exe est DÉJÀ remplacé en place ci-dessus : le batch n'a plus qu'à
+    # attendre brièvement la fermeture de l'app, puis relancer. (Pas de boucle
+    # d'attente sur le PID — elle se bloquait et laissait une console ouverte.)
     log = tmpdir / "update.log"
     bat = tmpdir / "relaunch.bat"
     bat.write_text(
         "@echo off\r\n"
-        f'echo relaunch start %date% %time% (pid {pid}) > "{log}"\r\n'
-        ":wait\r\n"
-        f'tasklist /FI "PID eq {pid}" 2>nul | find "{pid}" >nul\r\n'
-        'if not errorlevel 1 (ping -n 2 127.0.0.1 >nul & goto wait)\r\n'
-        f'echo process termine, lancement >> "{log}"\r\n'
+        f'echo relaunch %date% %time% > "{log}"\r\n'
+        "ping -n 4 127.0.0.1 >nul\r\n"
+        f'echo lancement >> "{log}"\r\n'
         f'start "" "{target}" --updated {version}\r\n'
         f'del "{old}" >nul 2>&1\r\n'
         f'echo done >> "{log}"\r\n',
@@ -224,14 +224,13 @@ def _apply_windows(
     if notify_fn:
         notify_fn(
             "Mise à jour installée",
-            f"v{version} installée — redémarrage (sinon relancez l'application).",
+            f"v{version} installée — redémarrage…",
         )
 
-    DETACHED_PROCESS = 0x00000008
     CREATE_NO_WINDOW = 0x08000000
     subprocess.Popen(
         ["cmd", "/c", str(bat)],
-        creationflags=DETACHED_PROCESS | CREATE_NO_WINDOW,
+        creationflags=CREATE_NO_WINDOW,
         close_fds=True,
     )
     time.sleep(1)
