@@ -193,22 +193,39 @@ def _apply_windows(
     if new_exe.stat().st_size < 1_000_000:
         raise RuntimeError("Téléchargement incomplet")
 
-    # Script batch : attend la fin du process courant (l'.exe est alors
-    # déverrouillé), remplace l'exécutable, relance, puis se supprime.
+    # Remplacement EN PLACE pendant que l'app tourne : renommer un .exe en cours
+    # d'exécution est autorisé sous Windows (contrairement à l'écraser). On
+    # libère ainsi le nom, on y pose le nouveau .exe, et le batch n'a plus qu'à
+    # relancer après la fermeture. Si la relance échoue, l'exe est déjà à jour.
+    old = target.with_name(target.name + ".old")
+    try:
+        if old.exists():
+            old.unlink()
+    except OSError:
+        pass
+    os.replace(str(target), str(old))  # renomme l'exe courant
+    os.replace(str(new_exe), str(target))  # met le nouveau à la place
+
     pid = os.getpid()
-    bat = tmpdir / "update.bat"
+    log = tmpdir / "update.log"
+    bat = tmpdir / "relaunch.bat"
     bat.write_text(
         "@echo off\r\n"
+        f'echo relaunch start %date% %time% (pid {pid}) > "{log}"\r\n'
         ":wait\r\n"
-        f'tasklist /FI "PID eq {pid}" | find "{pid}" >nul && '
-        "(ping -n 2 127.0.0.1 >nul & goto wait)\r\n"
-        f'move /y "{new_exe}" "{target}" >nul\r\n'
+        f'tasklist /FI "PID eq {pid}" 2>nul | find "{pid}" >nul\r\n'
+        'if not errorlevel 1 (ping -n 2 127.0.0.1 >nul & goto wait)\r\n'
+        f'echo process termine, lancement >> "{log}"\r\n'
         f'start "" "{target}" --updated {version}\r\n'
-        'del "%~f0"\r\n',
+        f'del "{old}" >nul 2>&1\r\n'
+        f'echo done >> "{log}"\r\n',
         encoding="utf-8",
     )
     if notify_fn:
-        notify_fn("Mise à jour", "Installation et redémarrage…")
+        notify_fn(
+            "Mise à jour installée",
+            f"v{version} installée — redémarrage (sinon relancez l'application).",
+        )
 
     DETACHED_PROCESS = 0x00000008
     CREATE_NO_WINDOW = 0x08000000

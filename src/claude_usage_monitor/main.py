@@ -438,6 +438,18 @@ def main() -> None:
         datefmt="%H:%M:%S",
         handlers=handlers,
     )
+    # Réduire le bruit des libs tierces (surtout en mode debug)
+    logging.getLogger("PIL").setLevel(logging.INFO)
+    logging.getLogger("urllib3").setLevel(logging.INFO)
+
+    # Nettoyer le .exe précédent laissé par une auto-update (Windows)
+    if getattr(sys, "frozen", False):
+        try:
+            old_exe = Path(sys.executable + ".old")
+            if old_exe.exists():
+                old_exe.unlink()
+        except OSError:
+            pass
 
     # Single instance — tue l'ancienne instance si nécessaire
     if not _acquire_single_instance():
