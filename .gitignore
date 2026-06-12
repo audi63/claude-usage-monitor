@@ -45,3 +45,6 @@ htmlcov/
 # PyInstaller
 *.spec
 debug_output.txt
+
+# Artefacts de session Claude Code
+.claude/
