@@ -46,5 +46,7 @@ htmlcov/
 *.spec
 debug_output.txt
 
-# Artefacts de session Claude Code
-.claude/
+# Config & artefacts de session Claude Code
+# (on ignore le contenu local — logs, états — mais on garde launch.json, utile aux contributeurs)
+.claude/*
+!.claude/launch.json
