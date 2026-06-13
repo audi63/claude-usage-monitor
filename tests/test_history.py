@@ -20,8 +20,8 @@ def test_save_and_load_entry():
         history_path = Path(tmpdir) / "history.json"
         with patch("claude_usage_monitor.history.get_history_path", return_value=history_path):
             data = UsageData(
-                five_hour=UsageWindow(utilization=0.42, resets_at="2026-04-02T18:00:00Z"),
-                seven_day=UsageWindow(utilization=0.15, resets_at="2026-04-08T12:59:00Z"),
+                five_hour=UsageWindow(utilization=42, resets_at="2026-04-02T18:00:00Z"),
+                seven_day=UsageWindow(utilization=15, resets_at="2026-04-08T12:59:00Z"),
                 fetched_at=time.time(),
             )
             save_entry(data)
@@ -46,14 +46,14 @@ def test_history_prune():
         with patch("claude_usage_monitor.history.get_history_path", return_value=history_path):
             # Sauvegarder une entrée ancienne (8 jours)
             old_data = UsageData(
-                five_hour=UsageWindow(utilization=0.5, resets_at="2026-03-25T00:00:00Z"),
+                five_hour=UsageWindow(utilization=50, resets_at="2026-03-25T00:00:00Z"),
                 fetched_at=time.time() - 8 * 86400,
             )
             save_entry(old_data)
 
             # Sauvegarder une entrée récente
             new_data = UsageData(
-                five_hour=UsageWindow(utilization=0.3, resets_at="2026-04-02T00:00:00Z"),
+                five_hour=UsageWindow(utilization=30, resets_at="2026-04-02T00:00:00Z"),
                 fetched_at=time.time(),
             )
             save_entry(new_data)

@@ -14,7 +14,7 @@ def test_notification_fires_at_threshold():
     manager = NotificationManager(config, notify_fn=lambda t, m: sent.append((t, m)))
 
     data = UsageData(
-        five_hour=UsageWindow(utilization=0.85, resets_at="2026-04-02T18:00:00Z"),
+        five_hour=UsageWindow(utilization=85, resets_at="2026-04-02T18:00:00Z"),
     )
     manager.check(data)
     assert len(sent) == 1
@@ -31,7 +31,7 @@ def test_notification_no_spam():
     manager = NotificationManager(config, notify_fn=lambda t, m: sent.append((t, m)))
 
     data = UsageData(
-        five_hour=UsageWindow(utilization=0.85, resets_at="2026-04-02T18:00:00Z"),
+        five_hour=UsageWindow(utilization=85, resets_at="2026-04-02T18:00:00Z"),
     )
     manager.check(data)
     manager.check(data)  # Même données — pas de re-notification
@@ -49,14 +49,14 @@ def test_notification_reset_clears_state():
 
     # Premier check — seuil 80% franchi
     data1 = UsageData(
-        five_hour=UsageWindow(utilization=0.85, resets_at="2026-04-02T18:00:00Z"),
+        five_hour=UsageWindow(utilization=85, resets_at="2026-04-02T18:00:00Z"),
     )
     manager.check(data1)
     assert len(sent) == 1
 
     # Reset détecté (resets_at change)
     data2 = UsageData(
-        five_hour=UsageWindow(utilization=0.1, resets_at="2026-04-02T23:00:00Z"),
+        five_hour=UsageWindow(utilization=10, resets_at="2026-04-02T23:00:00Z"),
     )
     manager.check(data2)
     assert len(sent) == 2  # Notification de reset
@@ -69,7 +69,7 @@ def test_notification_disabled():
     manager = NotificationManager(config, notify_fn=lambda t, m: sent.append((t, m)))
 
     data = UsageData(
-        five_hour=UsageWindow(utilization=0.95, resets_at="2026-04-02T18:00:00Z"),
+        five_hour=UsageWindow(utilization=95, resets_at="2026-04-02T18:00:00Z"),
     )
     manager.check(data)
     assert len(sent) == 0

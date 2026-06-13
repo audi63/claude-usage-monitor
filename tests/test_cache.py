@@ -19,8 +19,8 @@ def test_save_and_load_roundtrip():
         cache_path = Path(tmpdir) / "cache.json"
         with patch("claude_usage_monitor.cache.get_cache_path", return_value=cache_path):
             data = UsageData(
-                five_hour=UsageWindow(utilization=0.42, resets_at="2026-04-02T18:00:00Z"),
-                seven_day=UsageWindow(utilization=0.15, resets_at="2026-04-08T12:59:00Z"),
+                five_hour=UsageWindow(utilization=42, resets_at="2026-04-02T18:00:00Z"),
+                seven_day=UsageWindow(utilization=15, resets_at="2026-04-08T12:59:00Z"),
                 fetched_at=1000000.0,
                 subscription_type="pro",
             )
@@ -29,9 +29,9 @@ def test_save_and_load_roundtrip():
 
             assert loaded is not None
             assert loaded.five_hour is not None
-            assert loaded.five_hour.utilization == 0.42
+            assert loaded.five_hour.utilization == 42
             assert loaded.seven_day is not None
-            assert loaded.seven_day.utilization == 0.15
+            assert loaded.seven_day.utilization == 15
             assert loaded.subscription_type == "pro"
 
 

@@ -102,19 +102,21 @@ def _api_headers(token: str) -> dict[str, str]:
 class UsageWindow:
     """Fenêtre d'utilisation (5h ou 7j)."""
 
-    utilization: float  # Valeur brute de l'API (peut être 0.0-1.0 ou 0-100)
+    utilization: float  # Pourcentage d'utilisation 0-100 (format de l'API)
     resets_at: str  # ISO 8601
 
     @property
     def percentage(self) -> float:
         """Pourcentage d'utilisation (0-100).
 
-        L'API peut retourner soit un ratio (0.0-1.0) soit un pourcentage (0-100).
-        On détecte automatiquement : si > 1.0, c'est déjà un pourcentage.
+        L'API OAuth renvoie déjà un pourcentage 0-100 (ex. five_hour=9.0 → 9 %,
+        seven_day=1.0 → 1 %). On le renvoie tel quel.
+
+        ⚠️ Ne PAS réintroduire d'heuristique « si <= 1.0, ×100 » : une vraie
+        utilisation de 1 % (utilization=1.0) serait alors affichée 100 %
+        (incident overlay « hebdo 100 % » au lieu de 1 %, 2026-06-13).
         """
-        if self.utilization > 1.0:
-            return self.utilization
-        return self.utilization * 100
+        return self.utilization
 
 
 @dataclass
@@ -141,9 +143,8 @@ class ExtraUsage:
 
     @property
     def percentage(self) -> float:
-        if self.utilization > 1.0:
-            return self.utilization
-        return self.utilization * 100
+        # L'API renvoie déjà un pourcentage 0-100 (cf. UsageWindow.percentage).
+        return self.utilization
 
 
 @dataclass
