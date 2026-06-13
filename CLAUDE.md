@@ -9,6 +9,11 @@ Python 3.12, multi-plateforme (Windows / Linux / macOS).
 - **Outils** : `uv` (pas pip/poetry). Tests `uv run pytest`, lint `uv run ruff check src/ tests/`.
 - **Lancement local (Linux)** : service systemd utilisateur `claude-usage-monitor.service`
   (`systemctl --user …`) — voir `autostart.py` (bascule « Démarrage auto » du menu tray).
+- **⚠️ Config Claude dans le repo = VOULU, ne PAS re-signaler comme écart.** Ce `CLAUDE.md` et
+  `.claude/launch.json` sont **volontairement** versionnés ici (et NON symlinkés vers Cortex) :
+  c'est l'**exception « repo perso open-source »** de la convention `convention-config-claude-projets`
+  (utile aux contributeurs). Ne pas proposer de migration vers Cortex ni de les détracker.
+  `.gitignore` = `.claude/*` + `!.claude/launch.json` (on garde ce seul fichier, on ignore les logs).
 
 ## Procédure de release — À FAIRE PAR CLAUDE, TOUJOURS
 
