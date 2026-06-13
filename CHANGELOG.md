@@ -4,6 +4,11 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.6.1] — 2026-06-13
+
+### Corrigé
+- **Quota hebdomadaire faussé : 1 % affiché 100 %.** L'API OAuth usage renvoie toujours un pourcentage 0-100, mais une heuristique « si la valeur est ≤ 1, la multiplier par 100 » traitait toute utilisation comprise dans `]0, 1]` comme un ratio. Une utilisation réelle de 1 % (`utilization=1.0`) devenait donc **100 %** (overlay « Hebdomadaire · tous les modèles 100 % » alarmiste, barre rouge), alors que les autres valeurs (≥ 1 %) restaient correctes. Le pourcentage de l'API est désormais utilisé tel quel.
+
 ## [2.6.0] — 2026-06-03
 
 ### Ajouté

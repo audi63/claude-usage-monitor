@@ -20,6 +20,7 @@ Si vous l'aimez, une ⭐ sur le repo fait vraiment plaisir et aide le projet à 
 
 ## ✨ Nouveautés v2.6
 
+- **Correctif (2.6.1)** : le quota **hebdomadaire** pouvait s'afficher à **100 %** alors qu'il n'était qu'à **1 %** (barre rouge alarmiste). Une utilisation réelle de 1 % est désormais bien affichée 1 %.
 - **Mise à jour automatique** : depuis le menu « Mettre à jour → vX.Y.Z », l'app télécharge et installe elle-même la nouvelle version (fini le téléchargement manuel sur GitHub), puis invite à la relancer.
 - **Windows : icône systray fiable** — correction du bug où l'icône disparaissait après quitter/relancer (tooltip trop long refusé par Windows) ; seul l'overlay restait visible.
 - **Mises à jour détectées en continu** : re-vérification périodique (~6 h) → une instance laissée ouverte détecte une nouvelle version sans redémarrage.
