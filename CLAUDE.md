@@ -38,6 +38,11 @@ Quand on publie une version, Claude exécute **toute** la séquence (ne jamais e
      Si bloqué, fournir la commande `! gh release create …` à Johan pour qu'il la lance lui-même.
 6. **Linux** : pas de binaire dans les releases (distribution = PyPI / sources). Redémarrer le
    service pour qu'il reparte sur la nouvelle version : `systemctl --user restart claude-usage-monitor`.
+   ⚠️ **Étape critique, jamais facultative** : le `.venv` est en mode *editable* (`uv sync`), donc le
+   nouveau code est déjà sur disque mais le **process en cours garde l'ancienne version en mémoire**
+   tant qu'on ne redémarre pas → le tray affiche l'ancienne version et propose une MAJ en boucle
+   (incident 2.6.0→2.6.1). Inutile de cliquer « Mettre à jour » dans le tray : le code editable fait
+   foi. Détail : `cortex/01-projects/claude-usage-monitor/notes/runbook-release-claude-usage-monitor.md`.
 7. **Cortex** : mettre à jour / créer la note du projet
    (`cortex/01-projects/claude-usage-monitor/notes/`) et les tâches associées. **Toujours.**
 
