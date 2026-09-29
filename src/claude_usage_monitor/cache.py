@@ -5,9 +5,16 @@ from __future__ import annotations
 import json
 import logging
 import os
+from dataclasses import asdict
 from pathlib import Path
 
-from claude_usage_monitor.api import ExtraUsage, UsageData, UsageWindow
+from claude_usage_monitor.api import (
+    BreakdownRow,
+    ScopedLimit,
+    UsageData,
+    UsageWindow,
+    parse_extra_usage,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -53,17 +60,16 @@ def load() -> UsageData | None:
         result.seven_day_sonnet = _window_from(data.get("seven_day_sonnet"))
         result.seven_day_opus = _window_from(data.get("seven_day_opus"))
 
-        eu = data.get("extra_usage")
-        if eu:
-            result.extra_usage = ExtraUsage(
-                is_enabled=eu.get("is_enabled", False),
-                used_credits=eu.get("used_credits", 0),
-                monthly_limit=eu.get("monthly_limit"),
-                utilization=eu.get("utilization", 0.0),
-            )
+        result.extra_usage = parse_extra_usage(data.get("extra_usage"))
+        result.scoped_limits = [
+            ScopedLimit(**lim) for lim in data.get("scoped_limits", [])
+        ]
+        result.weekly_breakdown = [
+            BreakdownRow(**row) for row in data.get("weekly_breakdown", [])
+        ]
 
         return result
-    except (json.JSONDecodeError, KeyError, OSError) as e:
+    except (json.JSONDecodeError, KeyError, TypeError, OSError) as e:
         logger.warning("Erreur lecture cache: %s", e)
         return None
 
@@ -97,7 +103,15 @@ def save(usage: UsageData) -> None:
             "used_credits": usage.extra_usage.used_credits,
             "monthly_limit": usage.extra_usage.monthly_limit,
             "utilization": usage.extra_usage.utilization,
+            "currency": usage.extra_usage.currency,
+            "decimal_places": usage.extra_usage.decimal_places,
+            "disabled_reason": usage.extra_usage.disabled_reason,
         }
+
+    if usage.scoped_limits:
+        data["scoped_limits"] = [asdict(lim) for lim in usage.scoped_limits]
+    if usage.weekly_breakdown:
+        data["weekly_breakdown"] = [asdict(row) for row in usage.weekly_breakdown]
 
     try:
         with open(path, "w", encoding="utf-8") as f:

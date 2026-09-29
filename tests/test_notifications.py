@@ -73,3 +73,20 @@ def test_notification_disabled():
     )
     manager.check(data)
     assert len(sent) == 0
+
+
+def test_notification_for_scoped_model_limit():
+    """Une limite hebdo par modèle (ex. Fable) déclenche aussi les seuils."""
+    from claude_usage_monitor.api import ScopedLimit
+
+    sent = []
+    config = {"notifications_enabled": True, "notification_thresholds": [80]}
+    manager = NotificationManager(config, notify_fn=lambda t, m: sent.append((t, m)))
+
+    data = UsageData(scoped_limits=[
+        ScopedLimit(label="Fable", percentage=85, resets_at="2026-10-06T03:00:00Z")
+    ])
+    manager.check(data)
+    manager.check(data)
+    assert len(sent) == 1
+    assert "Fable" in sent[0][1]

@@ -69,3 +69,19 @@ def test_time_ago():
     assert "il y a" in time_ago(time.time() - 30)
     assert "s" in time_ago(time.time() - 10)
     assert "m" in time_ago(time.time() - 120)
+
+
+def test_format_money_uses_account_currency():
+    from unittest.mock import patch
+
+    from claude_usage_monitor.utils import format_money
+
+    with patch("claude_usage_monitor.i18n.get_language", return_value="fr"):
+        assert format_money(30.0, "EUR") == "30,00 €"
+        assert format_money(19.88, "USD") == "19,88 $US"
+        assert format_money(5.0, "CHF") == "5,00 CHF"
+        assert format_money(None, "EUR") == "—"
+    with patch("claude_usage_monitor.i18n.get_language", return_value="en"):
+        assert format_money(30.0, "EUR") == "€30.00"
+        assert format_money(1234.5, "USD") == "$1,234.50"
+        assert format_money(5.0, "CHF") == "CHF 5.00"

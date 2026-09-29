@@ -31,7 +31,7 @@ OAUTH_BETA = "oauth-2025-04-20"
 # Version de User-Agent par défaut si Claude Code n'est pas détecté.
 # Claude Code envoie `claude-code/<version>` ; un UA réaliste évite que l'API
 # masque les vrais codes d'erreur (403 « revoked ») derrière des 429 génériques.
-DEFAULT_CLAUDE_CODE_VERSION = "2.1.4"
+DEFAULT_CLAUDE_CODE_VERSION = "2.1.284"
 
 # Service Keychain macOS utilisé par Claude Code (suffixe vide en production —
 # `OAUTH_FILE_SUFFIX:""`). Le compte est `$USER`.
@@ -121,30 +121,61 @@ class UsageWindow:
 
 @dataclass
 class ExtraUsage:
-    """Utilisation supplémentaire (overage facturé au-delà du forfait).
+    """Utilisation supplémentaire (crédits facturés au-delà du forfait).
 
-    Les montants sont fournis par l'API en *centimes* de dollar.
+    Les montants sont fournis par l'API en *unités mineures* de la devise du
+    compte (`currency`, ex. EUR/USD) avec `decimal_places` décimales
+    (2 → centimes). Ne jamais supposer l'USD : un compte européen est en EUR.
     """
 
     is_enabled: bool = False
-    used_credits: int = 0  # centimes
-    monthly_limit: int | None = None  # centimes (None = illimité)
+    used_credits: float = 0  # unités mineures (centimes)
+    monthly_limit: int | None = None  # unités mineures (None = illimité)
     utilization: float = 0.0  # 0-100
+    currency: str = "USD"  # code ISO 4217 renvoyé par l'API
+    decimal_places: int = 2
+    disabled_reason: str | None = None  # ex. "out_of_credits"
 
     @property
-    def used_dollars(self) -> float:
-        return self.used_credits / 100
+    def _divisor(self) -> int:
+        return 10 ** self.decimal_places
 
     @property
-    def limit_dollars(self) -> float | None:
+    def used_amount(self) -> float:
+        return self.used_credits / self._divisor
+
+    @property
+    def limit_amount(self) -> float | None:
         if self.monthly_limit is None:
             return None
-        return self.monthly_limit / 100
+        return self.monthly_limit / self._divisor
 
     @property
     def percentage(self) -> float:
         # L'API renvoie déjà un pourcentage 0-100 (cf. UsageWindow.percentage).
         return self.utilization
+
+
+@dataclass
+class ScopedLimit:
+    """Limite hebdo restreinte à un modèle/surface (entrée `limits[]` de l'API).
+
+    Ex. `{"kind": "weekly_scoped", "percent": 64, "scope": {"model":
+    {"display_name": "Fable"}}}`. Le libellé vient de l'API : aucun nom de
+    modèle n'est codé en dur.
+    """
+
+    label: str
+    percentage: float  # 0-100
+    resets_at: str  # ISO 8601
+
+
+@dataclass
+class BreakdownRow:
+    """Part de l'usage hebdo par surface (`seven_day_breakdown.rows`)."""
+
+    label: str
+    percentage: float  # 0-100
 
 
 @dataclass
@@ -156,10 +187,86 @@ class UsageData:
     seven_day_sonnet: UsageWindow | None = None  # quota hebdo Sonnet uniquement
     seven_day_opus: UsageWindow | None = None  # quota hebdo Opus uniquement (Max)
     extra_usage: ExtraUsage | None = None
+    # Limites hebdo par modèle/surface issues de `limits[]` (ex. Fable)
+    scoped_limits: list[ScopedLimit] = field(default_factory=list)
+    # Répartition de l'usage hebdo par surface (Claude Code, Chats, Cowork…)
+    weekly_breakdown: list[BreakdownRow] = field(default_factory=list)
     fetched_at: float = field(default_factory=time.time)
     error: str | None = None
     subscription_type: str | None = None
     is_disconnected: bool = False  # True = coupure réseau/token, False = rate limit ou OK
+
+
+def parse_extra_usage(eu: object) -> ExtraUsage | None:
+    """Construit ExtraUsage depuis l'objet `extra_usage` de l'API (tolérant)."""
+    if not isinstance(eu, dict):
+        return None
+    return ExtraUsage(
+        is_enabled=bool(eu.get("is_enabled", False)),
+        used_credits=float(eu.get("used_credits") or 0),
+        monthly_limit=(
+            int(eu["monthly_limit"]) if eu.get("monthly_limit") is not None else None
+        ),
+        utilization=float(eu.get("utilization") or 0),
+        currency=str(eu.get("currency") or "USD"),
+        decimal_places=int(eu.get("decimal_places", 2) or 0),
+        disabled_reason=eu.get("disabled_reason"),
+    )
+
+
+def _scope_label(scope: object) -> str | None:
+    """Libellé lisible d'un `scope` de limite : modèle, sinon surface."""
+    if not isinstance(scope, dict):
+        return None
+    for key in ("model", "surface"):
+        part = scope.get(key)
+        if isinstance(part, dict):
+            name = part.get("display_name") or part.get("id")
+            if name:
+                return str(name)
+        elif isinstance(part, str) and part:
+            return part
+    return None
+
+
+def parse_scoped_limits(limits: object) -> list[ScopedLimit]:
+    """Extrait les limites hebdo restreintes (`kind == weekly_scoped`) de `limits[]`.
+
+    Session et hebdo global restent lus via `five_hour` / `seven_day`.
+    """
+    if not isinstance(limits, list):
+        return []
+    result: list[ScopedLimit] = []
+    for item in limits:
+        if not isinstance(item, dict) or item.get("kind") != "weekly_scoped":
+            continue
+        label = _scope_label(item.get("scope"))
+        if not label:
+            continue
+        result.append(ScopedLimit(
+            label=label,
+            percentage=float(item.get("percent") or 0),
+            resets_at=item.get("resets_at") or "",
+        ))
+    return result
+
+
+def parse_breakdown(breakdown: object) -> list[BreakdownRow]:
+    """Extrait la répartition hebdo par surface (`seven_day_breakdown.rows`)."""
+    if not isinstance(breakdown, dict):
+        return []
+    rows = breakdown.get("rows")
+    if not isinstance(rows, list):
+        return []
+    result: list[BreakdownRow] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        label = row.get("display_name") or row.get("key")
+        if label:
+            result.append(BreakdownRow(label=str(label),
+                                       percentage=float(row.get("percent") or 0)))
+    return result
 
 
 def get_credentials_path() -> Path:
@@ -504,18 +611,9 @@ class ApiClient:
             result.seven_day_sonnet = _window("seven_day_sonnet")
             result.seven_day_opus = _window("seven_day_opus")
 
-            eu = data.get("extra_usage")
-            if isinstance(eu, dict):
-                result.extra_usage = ExtraUsage(
-                    is_enabled=bool(eu.get("is_enabled", False)),
-                    used_credits=int(eu.get("used_credits") or 0),
-                    monthly_limit=(
-                        int(eu["monthly_limit"])
-                        if eu.get("monthly_limit") is not None
-                        else None
-                    ),
-                    utilization=float(eu.get("utilization") or 0),
-                )
+            result.extra_usage = parse_extra_usage(data.get("extra_usage"))
+            result.scoped_limits = parse_scoped_limits(data.get("limits"))
+            result.weekly_breakdown = parse_breakdown(data.get("seven_day_breakdown"))
 
             self._last_success = True
             self._consecutive_429 = 0

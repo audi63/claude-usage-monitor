@@ -4,7 +4,7 @@ Reproduit la présentation officielle de Claude :
 - en-tête « Utilisation du forfait »
 - une ligne par quota présent dans l'API (session 5h, hebdo tous modèles,
   Sonnet seulement, Opus seulement) avec « X % · Réinitialise dans … »
-- bloc « Utilisation supplémentaire » en dollars ($ dépensés / limite)
+- bloc « Utilisation supplémentaire » dans la devise du compte (dépensé / limite)
 
 Les lignes sont construites dynamiquement selon les quotas réellement renvoyés
 par l'API, ce qui permet d'afficher des forfaits Pro comme Max.
@@ -20,7 +20,7 @@ from claude_usage_monitor.api import ExtraUsage, UsageData, UsageWindow
 from claude_usage_monitor.i18n import t
 from claude_usage_monitor.utils import (
     format_countdown_short,
-    format_dollars,
+    format_money,
     is_windows,
     time_ago,
 )
@@ -209,6 +209,11 @@ class PopupWindow:
             windows.append((t("sonnet_only"), data.seven_day_sonnet))
         if data.seven_day_opus:
             windows.append((t("opus_only"), data.seven_day_opus))
+        # Limites hebdo par modèle/surface (`limits[]`, ex. Fable) — libellé API
+        for lim in data.scoped_limits:
+            windows.append((t("weekly_model", model=lim.label),
+                            UsageWindow(utilization=lim.percentage,
+                                        resets_at=lim.resets_at)))
 
         if not windows and not data.extra_usage:
             msg = data.error or t("no_data_yet")
@@ -225,6 +230,9 @@ class PopupWindow:
         if data.extra_usage:
             self._build_extra_row(data.extra_usage, first=not windows)
 
+        if data.weekly_breakdown:
+            self._build_breakdown_row(data)
+
         self._update_footer()
 
     def _build_quota_row(self, title: str, window: UsageWindow,
@@ -238,19 +246,36 @@ class PopupWindow:
 
     def _build_extra_row(self, extra: ExtraUsage, first: bool) -> None:
         if not extra.is_enabled:
-            right = t("extra_not_enabled")
+            right = (t("extra_out_of_credits")
+                     if extra.disabled_reason == "out_of_credits"
+                     else t("extra_not_enabled"))
             pct = None
-        elif extra.limit_dollars is None:
+        elif extra.limit_amount is None:
             right = t("extra_unlimited")
             pct = None
         else:
             right = t("spent_of",
-                      used=format_dollars(extra.used_dollars),
-                      limit=format_dollars(extra.limit_dollars))
+                      used=format_money(extra.used_amount, extra.currency),
+                      limit=format_money(extra.limit_amount, extra.currency))
             pct = extra.percentage
         row = self._row_skeleton(t("extra_usage"), right, pct)
         row["kind"] = "extra"
         self._rows.append(row)
+
+    def _build_breakdown_row(self, data: UsageData) -> None:
+        """Ligne texte : part de l'usage hebdo par surface (Claude Code, Chats…)."""
+        parts = [f"{r.label} {r.percentage:.0f}%"
+                 for r in data.weekly_breakdown if r.percentage > 0]
+        if not parts:
+            return
+        frame = tk.Frame(self._body, bg=C["card"], padx=ROW_PAD, pady=8)
+        frame.pack(fill="x")
+        tk.Label(frame, text=t("weekly_breakdown"), font=("Segoe UI", 9, "bold"),
+                 bg=C["card"], fg=C["fg"], anchor="w").pack(fill="x")
+        tk.Label(frame, text="  ·  ".join(parts), font=("Segoe UI", 9),
+                 bg=C["card"], fg=C["fg_secondary"], anchor="w",
+                 wraplength=POPUP_WIDTH - 2 * ROW_PAD,
+                 justify="left").pack(fill="x")
 
     def _row_skeleton(self, title: str, right_text: str,
                       pct: float | None) -> dict:

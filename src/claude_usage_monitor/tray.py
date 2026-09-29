@@ -20,7 +20,7 @@ from claude_usage_monitor.icon_generator import generate_icon
 from claude_usage_monitor.updater import apply_update, get_available_update
 from claude_usage_monitor.utils import (
     format_countdown,
-    format_dollars,
+    format_money,
     format_percentage,
     time_ago,
 )
@@ -258,13 +258,16 @@ class TrayManager:
                 f"{format_percentage(data.seven_day_opus.percentage)}"
             )
 
+        for lim in data.scoped_limits:
+            lines.append(f"{lim.label}: {format_percentage(lim.percentage)}")
+
         if data.extra_usage and data.extra_usage.is_enabled \
-                and data.extra_usage.limit_dollars is not None:
+                and data.extra_usage.limit_amount is not None:
             eu = data.extra_usage
             lines.append(
                 f"{t('extra_usage')}: "
-                f"{format_dollars(eu.used_dollars)} / "
-                f"{format_dollars(eu.limit_dollars)}"
+                f"{format_money(eu.used_amount, eu.currency)} / "
+                f"{format_money(eu.limit_amount, eu.currency)}"
             )
 
         sub = data.subscription_type or "?"

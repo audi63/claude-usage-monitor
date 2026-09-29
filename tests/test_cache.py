@@ -4,7 +4,13 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-from claude_usage_monitor.api import ExtraUsage, UsageData, UsageWindow
+from claude_usage_monitor.api import (
+    BreakdownRow,
+    ExtraUsage,
+    ScopedLimit,
+    UsageData,
+    UsageWindow,
+)
 from claude_usage_monitor.cache import load, save
 
 
@@ -53,7 +59,12 @@ def test_roundtrip_per_model_and_extra_usage():
                     used_credits=1988,
                     monthly_limit=3000,
                     utilization=66.0,
+                    currency="EUR",
+                    disabled_reason="out_of_credits",
                 ),
+                scoped_limits=[ScopedLimit(label="Fable", percentage=64,
+                                           resets_at="2026-06-01T12:00:00Z")],
+                weekly_breakdown=[BreakdownRow(label="Claude Code", percentage=72)],
                 fetched_at=1000000.0,
                 subscription_type="max",
             )
@@ -64,9 +75,14 @@ def test_roundtrip_per_model_and_extra_usage():
             assert loaded.seven_day_sonnet.utilization == 2
             assert loaded.seven_day_opus.utilization == 9
             assert loaded.extra_usage is not None
-            assert loaded.extra_usage.used_dollars == 19.88
-            assert loaded.extra_usage.limit_dollars == 30.0
+            assert loaded.extra_usage.used_amount == 19.88
+            assert loaded.extra_usage.limit_amount == 30.0
             assert loaded.extra_usage.percentage == 66.0
+            assert loaded.extra_usage.currency == "EUR"
+            assert loaded.extra_usage.disabled_reason == "out_of_credits"
+            assert loaded.scoped_limits[0].label == "Fable"
+            assert loaded.scoped_limits[0].percentage == 64
+            assert loaded.weekly_breakdown[0].label == "Claude Code"
 
 
 def test_save_skips_on_error():

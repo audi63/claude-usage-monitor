@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from claude_usage_monitor.api import UsageData
+from claude_usage_monitor.i18n import t
 from claude_usage_monitor.sounds import play_alert
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,8 @@ class NotificationManager:
         self._notify = notify_fn
         self._state_5h = _WindowState()
         self._state_7d = _WindowState()
+        # Limites hebdo par modèle/surface (ex. Fable), indexées par libellé API
+        self._state_scoped: dict[str, _WindowState] = {}
 
     def check(self, data: UsageData) -> None:
         """Vérifie les seuils et envoie des notifications si nécessaire."""
@@ -62,6 +65,16 @@ class NotificationManager:
                 thresholds,
                 notify_reset,
                 self._state_7d,
+            )
+
+        for lim in data.scoped_limits:
+            self._check_window(
+                t("weekly_model", model=lim.label),
+                lim.percentage,
+                lim.resets_at,
+                thresholds,
+                notify_reset,
+                self._state_scoped.setdefault(lim.label, _WindowState()),
             )
 
     def _check_window(

@@ -42,19 +42,28 @@ def format_percentage(pct: float | None) -> str:
     return f"{pct:.0f}%"
 
 
-def format_dollars(amount: float | None) -> str:
-    """Formate un montant en dollars selon la langue active.
+# Symboles des devises courantes. Toute autre devise s'affiche par son code
+# ISO 4217 (ex. « 30,00 CHF »). Côté non-anglais, l'USD garde « $US » pour
+# lever l'ambiguïté avec les autres dollars.
+CURRENCY_SYMBOLS_EN = {"USD": "$", "EUR": "€", "GBP": "£", "JPY": "¥"}
+CURRENCY_SUFFIXES = {"USD": "$US", "EUR": "€", "GBP": "£", "JPY": "¥"}
 
-    fr/de/es/pt/it : « 19,88 $US ». en : « $19.88 ».
+
+def format_money(amount: float | None, currency: str = "USD") -> str:
+    """Formate un montant dans la devise du compte selon la langue active.
+
+    en : « €30.00 », « $19.88 ». fr/de/es/pt/it : « 30,00 € », « 19,88 $US ».
     """
     if amount is None:
         return "—"
     from claude_usage_monitor.i18n import get_language
 
+    code = (currency or "USD").upper()
     if get_language() == "en":
-        return f"${amount:,.2f}"
-    # Décimale virgule + suffixe $US (style francophone/européen)
-    return f"{amount:.2f}".replace(".", ",") + " $US"
+        symbol = CURRENCY_SYMBOLS_EN.get(code)
+        return f"{symbol}{amount:,.2f}" if symbol else f"{code} {amount:,.2f}"
+    # Décimale virgule + devise en suffixe (style européen)
+    return f"{amount:.2f}".replace(".", ",") + " " + CURRENCY_SUFFIXES.get(code, code)
 
 
 def format_countdown(resets_at: float | str | None) -> str:
