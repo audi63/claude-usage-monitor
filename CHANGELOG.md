@@ -4,6 +4,19 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.7.0] — 2026-09-29
+
+### Ajouté
+- **Limites hebdomadaires par modèle** (gamme Claude 5) : lecture du tableau `limits[]` de l'API (`kind: weekly_scoped`, ex. **Fable**). Affichées dans le panneau et le tooltip, et soumises aux seuils de notification. Le libellé vient de l'API (`display_name`) : aucun nom de modèle n'est codé en dur. Les anciens compteurs `seven_day_sonnet` / `seven_day_opus`, désormais renvoyés à `null`, restent pris en charge si l'API les fournit.
+- **Répartition hebdomadaire par surface** (`seven_day_breakdown`) : Claude Code, Chats, Cowork… dans le panneau.
+- **État « crédits épuisés »** pour l'utilisation supplémentaire désactivée faute de crédits (`disabled_reason`).
+
+### Corrigé
+- **Devise de l'utilisation supplémentaire** : les montants étaient toujours affichés en « $US », alors que l'API renvoie la devise du compte (`currency`, ex. **EUR**) et son nombre de décimales (`decimal_places`). Les montants sont désormais formatés dans la bonne devise (`30,00 €`, `€30.00`).
+
+### Modifié
+- User-Agent de repli mis à jour (`claude-code/2.1.284`) quand la version installée de Claude Code n'est pas détectée.
+
 ## [2.6.1] — 2026-06-13
 
 ### Corrigé

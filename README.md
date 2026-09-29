@@ -18,7 +18,13 @@ Si vous l'aimez, une ⭐ sur le repo fait vraiment plaisir et aide le projet à 
 > **Projet publié à titre de présentation et de consultation.**
 > Tous droits réservés. Aucune utilisation, reproduction, modification, redistribution ou exploitation commerciale n'est autorisée sans accord écrit préalable de l'auteur. Voir [LICENSE.md](LICENSE.md).
 
-## ✨ Nouveautés v2.6
+## ✨ Nouveautés v2.7
+
+- **Limites par modèle de la gamme Claude 5** : les plafonds hebdomadaires propres à un modèle (ex. **Fable**) sont lus depuis l'API et affichés avec leur barre et leur compte à rebours — sans aucun nom de modèle codé en dur (les nouveaux modèles apparaîtront automatiquement). Ils déclenchent aussi les notifications de seuil.
+- **Crédits supplémentaires dans la devise du compte** : les montants s'affichent en **€** pour un compte européen (auparavant toujours « $US », à tort), avec l'état « crédits épuisés » quand c'est le cas.
+- **Répartition hebdomadaire par surface** : part de l'usage de la semaine entre Claude Code, Chats, Cowork…
+
+## Nouveautés v2.6
 
 - **Correctif (2.6.1)** : le quota **hebdomadaire** pouvait s'afficher à **100 %** alors qu'il n'était qu'à **1 %** (barre rouge alarmiste). Une utilisation réelle de 1 % est désormais bien affichée 1 %.
 - **Mise à jour automatique** : depuis le menu « Mettre à jour → vX.Y.Z », l'app télécharge et installe elle-même la nouvelle version (fini le téléchargement manuel sur GitHub), puis invite à la relancer.
@@ -54,7 +60,7 @@ Détail complet dans le [CHANGELOG](CHANGELOG.md).
 - **Widget overlay** : compact (160×76px) ou mini (64×36px), always-on-top, ne vole jamais le focus — **taille fixe** (ne se déplace pas)
 - **Tooltip systray** : countdown avant reset en temps réel
 - **Grande vue au clic** : un clic sur l'overlay ouvre le panneau **« Utilisation du forfait »** juste à côté ; il se referme quand la souris quitte sa zone
-- **Panneau « Utilisation du forfait »** : reproduit la présentation native de Claude — session 5 h, hebdomadaire tous modèles, **Sonnet seulement**, **Opus seulement** (Max) et **utilisation supplémentaire** en dollars (`19,88 $US sur 30,00 $US`)
+- **Panneau « Utilisation du forfait »** : reproduit la présentation native de Claude — session 5 h, hebdomadaire tous modèles, limites **par modèle** (ex. **Fable**, et Sonnet/Opus si l'API les fournit), **utilisation supplémentaire** dans la devise du compte (`19,88 € sur 30,00 €`) et **répartition hebdomadaire** par surface
 - **Notifications système** : alertes aux seuils configurables (80%, 95%)
 - **Historique** : tendances d'utilisation sur 7 jours avec mini-graphiques
 - **Raccourci clavier** : Ctrl+Shift+U pour toggle le widget overlay
