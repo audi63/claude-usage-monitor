@@ -183,3 +183,39 @@ def test_extra_usage_decimal_places():
                     currency="JPY")
     assert eu.used_amount == 1500
     assert eu.limit_amount == 5000
+
+
+def _expired_creds():
+    creds = _fake_creds()
+    creds["claudeAiOauth"]["expiresAt"] = int((time.time() - 60) * 1000)
+    return creds
+
+
+def test_expired_token_is_never_refreshed_by_the_app():
+    """Lecture seule : un token expiré n'est pas rafraîchi par l'app.
+
+    Claude Code reste seul à renouveler ses credentials (zone grise CGU
+    tokens Pro/Max) ; l'app signale la session expirée et relit plus tard.
+    """
+    client = ApiClient()
+    with patch.object(client, "_read_credentials", return_value=_expired_creds()), \
+            patch("claude_usage_monitor.api.requests.post") as post, \
+            patch("claude_usage_monitor.api.requests.get") as get:
+        data = client.fetch_usage(force=True)
+    post.assert_not_called()
+    get.assert_not_called()
+    assert data.is_disconnected
+    assert data.error
+
+
+def test_429_does_not_trigger_token_refresh():
+    resp = MagicMock()
+    resp.status_code = 429
+    client = ApiClient()
+    with patch.object(client, "_read_credentials", return_value=_fake_creds()), \
+            patch("claude_usage_monitor.api.requests.post") as post, \
+            patch("claude_usage_monitor.api.requests.get", return_value=resp) as get:
+        data = client.fetch_usage(force=True)
+    post.assert_not_called()
+    assert get.call_count == 1
+    assert data.error

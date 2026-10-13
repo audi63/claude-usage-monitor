@@ -8,7 +8,6 @@ import os
 import shutil
 import subprocess
 import sys
-import tempfile
 import time
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -20,9 +19,6 @@ from claude_usage_monitor.i18n import t
 
 logger = logging.getLogger(__name__)
 
-# Client ID officiel de Claude Code (public, extrait du binaire)
-CLAUDE_CODE_CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
-TOKEN_REFRESH_URL = "https://platform.claude.com/v1/oauth/token"
 USAGE_API_URL = "https://api.anthropic.com/api/oauth/usage"
 
 # Header beta OAuth (identique à Claude Code — variable `gf` dans le binaire)
@@ -307,24 +303,6 @@ def read_keychain_credentials() -> str | None:
     return None
 
 
-def write_keychain_credentials(raw_json: str) -> bool:
-    """Écrit les credentials dans le Keychain macOS (refresh de token)."""
-    try:
-        result = subprocess.run(
-            [
-                "security", "add-generic-password", "-U",
-                "-a", _keychain_account(),
-                "-s", MACOS_KEYCHAIN_SERVICE,
-                "-w", raw_json,
-            ],
-            capture_output=True, text=True, timeout=5,
-        )
-        return result.returncode == 0
-    except (OSError, subprocess.SubprocessError) as e:
-        logger.warning("Écriture Keychain échouée: %s", e)
-        return False
-
-
 class ApiClient:
     """Client pour l'API OAuth usage de Claude."""
 
@@ -416,79 +394,13 @@ class ApiClient:
         # expiresAt est en millisecondes
         return time.time() * 1000 >= expires_at
 
-    def _refresh_token(self, creds: dict) -> dict | None:
-        """Rafraîchit le token OAuth via le refresh token."""
-        oauth = creds.get("claudeAiOauth", {})
-        refresh_token = oauth.get("refreshToken")
-        scopes = oauth.get("scopes", [])
-
-        if not refresh_token:
-            return None
-
-        try:
-            resp = requests.post(
-                TOKEN_REFRESH_URL,
-                json={
-                    "grant_type": "refresh_token",
-                    "refresh_token": refresh_token,
-                    "client_id": CLAUDE_CODE_CLIENT_ID,
-                    "scope": " ".join(scopes) if scopes else "",
-                },
-                headers={"Content-Type": "application/json"},
-                timeout=10,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-
-            # Mettre à jour les credentials
-            oauth["accessToken"] = data["access_token"]
-            if "refresh_token" in data:
-                oauth["refreshToken"] = data["refresh_token"]
-            if "expires_in" in data:
-                oauth["expiresAt"] = int(time.time() * 1000) + data["expires_in"] * 1000
-
-            creds["claudeAiOauth"] = oauth
-            return creds
-        except (requests.RequestException, KeyError, ValueError) as e:
-            logger.error("Erreur refresh token: %s", e)
-            return None
-
-    def _write_credentials(self, creds: dict) -> None:
-        """Écrit les credentials (Keychain macOS ou fichier atomique)."""
-        # macOS : écrire dans le Keychain (source de vérité de Claude Code)
-        if _is_macos():
-            if write_keychain_credentials(json.dumps(creds)):
-                return
-            logger.warning("Écriture Keychain échouée — repli sur le fichier")
-
-        path = get_credentials_path()
-        try:
-            # Écriture atomique : écrire dans un fichier temp puis renommer
-            fd, tmp_path = tempfile.mkstemp(
-                dir=str(path.parent), suffix=".tmp", prefix=".creds_"
-            )
-            try:
-                with os.fdopen(fd, "w", encoding="utf-8") as f:
-                    json.dump(creds, f, indent=2)
-                # Atomic replace
-                os.replace(tmp_path, str(path))
-            except Exception:
-                # Nettoyer le fichier temp en cas d'erreur
-                try:
-                    os.unlink(tmp_path)
-                except OSError:
-                    pass
-                raise
-        except OSError as e:
-            logger.error("Erreur écriture credentials: %s", e)
-
     def fetch_usage(self, force: bool = False) -> UsageData | None:
         """Récupère les données d'utilisation depuis l'API.
 
         Args:
             force: Si True, bypass le rate limit client (refresh manuel).
 
-        Gère automatiquement le refresh du token si expiré.
+        Lecture seule des credentials : seul Claude Code renouvelle le token.
         Ne lève jamais d'exception — retourne UsageData avec champ error.
         """
         # Rate limiting côté client (bypass si force, ou si dernier appel en erreur)
@@ -509,19 +421,16 @@ class ApiClient:
             oauth = creds.get("claudeAiOauth", {})
             sub_type = oauth.get("subscriptionType")
 
-            # Refresh si expiré
+            # Token expiré : on attend que Claude Code le renouvelle (lecture seule)
             if self._is_token_expired(creds):
-                logger.info("Token expiré, tentative de refresh...")
-                refreshed = self._refresh_token(creds)
-                if refreshed is None:
-                    return UsageData(
-                        error=t("token_expired"),
-                        subscription_type=sub_type,
-                        is_disconnected=True,
-                    )
-                creds = refreshed
-                self._write_credentials(creds)
-                oauth = creds["claudeAiOauth"]
+                logger.info("Token expiré — en attente du renouvellement par Claude Code")
+                self._last_success = False
+                self._min_interval = 30  # Relire souvent les credentials
+                return UsageData(
+                    error=t("token_expired"),
+                    subscription_type=sub_type,
+                    is_disconnected=True,
+                )
 
             token = oauth.get("accessToken")
             if not token:
@@ -561,33 +470,10 @@ class ApiClient:
                 self._consecutive_429 += 1
                 logger.info("429 rate limited (x%d)", self._consecutive_429)
 
-                # Tentative : essayer de refresh le token nous-mêmes
-                if self._consecutive_429 == 1:
-                    logger.info("429 — tentative de refresh token...")
-                    refreshed = self._refresh_token(creds)
-                    if refreshed:
-                        self._write_credentials(refreshed)
-                        new_token = refreshed["claudeAiOauth"]["accessToken"]
-                        self._last_token = new_token
-                        retry_resp = requests.get(
-                            USAGE_API_URL,
-                            headers=_api_headers(new_token),
-                            timeout=10,
-                        )
-                        if retry_resp.status_code == 200:
-                            logger.info("Token rafraîchi — données récupérées !")
-                            self._consecutive_429 = 0
-                            self._min_interval = 60
-                            resp = retry_resp
-                        else:
-                            logger.warning("429 même après refresh (status %d)",
-                                           retry_resp.status_code)
-
-                # Si toujours 429 — backoff et attente d'un nouveau token
-                if resp.status_code == 429:
-                    backoff = min(60 * self._consecutive_429, 300)
-                    self._min_interval = backoff
-                    return UsageData(error=t("rate_limited"), subscription_type=sub_type)
+                # Backoff et attente d'un nouveau token
+                backoff = min(60 * self._consecutive_429, 300)
+                self._min_interval = backoff
+                return UsageData(error=t("rate_limited"), subscription_type=sub_type)
 
             resp.raise_for_status()
             data = resp.json()
