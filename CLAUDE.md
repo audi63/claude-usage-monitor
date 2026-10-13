@@ -51,8 +51,16 @@ Quand on publie une version, Claude exécute **toute** la séquence (ne jamais e
 7. **Cortex** : mettre à jour / créer la note du projet
    (`cortex/01-projects/claude-usage-monitor/notes/`) et les tâches associées. **Toujours.**
 
-## Cortex
+## Contexte projet (lire avant d'agir)
 
-Doc de pilotage dans `~/Projets/cortex/01-projects/claude-usage-monitor/`
-(PRD, DCT, TASKS, notes, decisions). Le commit/push du vault est géré par `cortex-autosync`
-(ne pas committer le vault à la main).
+Pilotage dans `~/Projets/cortex/01-projects/claude-usage-monitor/` ; lire dans cet ordre :
+
+1. `context-claude-usage-monitor.md` — état courant (toujours en premier).
+2. Selon le besoin : `PRD-claude-usage-monitor.md` (périmètre), `DCT-claude-usage-monitor.md`
+   (conception), `TASKS-claude-usage-monitor.md` (tâches ouvertes).
+3. Chantier en cours : `chantier-audit-modernisation-claude-usage-monitor.md`.
+4. Release : `notes/runbook-release-claude-usage-monitor.md`.
+
+Pas de `docs/` dans le dépôt : la doc utilisateur est `README.md`. Conventions transverses :
+`~/Projets/docs-ref/llms-johan-full.txt` (déjà importé globalement). Le commit/push du vault
+est géré par `cortex-autosync` (ne pas committer le vault à la main).
