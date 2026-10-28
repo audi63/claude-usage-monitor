@@ -4,6 +4,14 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [Non publié]
+
+### Modifié
+- **Notifications traduites** : titres et messages des notifications de seuil et de réinitialisation suivent désormais la langue choisie (`language`, 6 langues) au lieu d'être toujours en français.
+
+### Ajouté
+- Réglage `notification_critical_threshold` (défaut `95`) : seuil à partir duquel la notification annonce « limite presque atteinte » (auparavant fixé dans le code).
+
 ## [2.7.0] — 2026-09-29
 
 ### Ajouté

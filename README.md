@@ -178,6 +178,7 @@ Fichier optionnel `~/.claude/usage-monitor-config.json` :
   "notification_thresholds": [80, 95],
   "notifications_enabled": true,
   "notify_on_reset": true,
+  "notification_critical_threshold": 95,
   "always_on_top": true,
   "widget_opacity": 0.95,
   "widget_position": {

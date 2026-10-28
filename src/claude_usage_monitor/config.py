@@ -12,6 +12,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "notification_thresholds": [80, 95],
     "notifications_enabled": True,
     "notify_on_reset": True,
+    "notification_critical_threshold": 95,
     "show_popup_on_click": True,
     "start_minimized": True,
     "language": "fr",
