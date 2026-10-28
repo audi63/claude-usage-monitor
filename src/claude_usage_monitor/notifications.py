@@ -49,7 +49,7 @@ class NotificationManager:
 
         if data.five_hour:
             self._check_window(
-                "Session (5h)",
+                t("session_5h"),
                 data.five_hour.percentage,
                 data.five_hour.resets_at,
                 thresholds,
@@ -59,7 +59,7 @@ class NotificationManager:
 
         if data.seven_day:
             self._check_window(
-                "Hebdomadaire (7j)",
+                t("weekly_7d_full"),
                 data.seven_day.percentage,
                 data.seven_day.resets_at,
                 thresholds,
@@ -91,8 +91,8 @@ class NotificationManager:
             # Le reset a eu lieu — réinitialiser les seuils notifiés
             if notify_reset and state.was_above_threshold:
                 self._send(
-                    "Quota réinitialisé",
-                    f"{name} : quota réinitialisé, utilisation à {percentage:.0f}%",
+                    t("notif_reset_title"),
+                    t("notif_reset_message", name=name, pct=f"{percentage:.0f}"),
                 )
             state.notified_thresholds.clear()
             state.was_above_threshold = False
@@ -101,6 +101,8 @@ class NotificationManager:
 
         # Seuil pour le son d'alerte (configurable, défaut 95)
         sound_threshold = self._config.get("sound_alert_threshold", 95)
+        # Seuil du message « limite presque atteinte » (configurable, défaut 95)
+        critical_threshold = self._config.get("notification_critical_threshold", 95)
 
         # Vérifier chaque seuil
         for threshold in sorted(thresholds):
@@ -109,16 +111,17 @@ class NotificationManager:
                 state.was_above_threshold = True
                 is_critical = threshold >= sound_threshold
 
-                if threshold >= 95:
+                pct = f"{percentage:.0f}"
+                if threshold >= critical_threshold:
                     self._send(
-                        "Limite presque atteinte !",
-                        f"{name} : {percentage:.0f}% utilisé — limite presque atteinte",
+                        t("notif_critical_title"),
+                        t("notif_critical_message", name=name, pct=pct),
                         critical=is_critical,
                     )
                 else:
                     self._send(
-                        f"Utilisation à {threshold}%",
-                        f"{name} : {percentage:.0f}% du quota utilisé",
+                        t("notif_threshold_title", threshold=threshold),
+                        t("notif_threshold_message", name=name, pct=pct),
                         critical=is_critical,
                     )
 

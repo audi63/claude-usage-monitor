@@ -4,10 +4,14 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
-## [2.7.1] — 2026-10-13
+## [2.8.0] — 2026-10-28
+
+### Ajouté
+- Réglage `notification_critical_threshold` (défaut `95`) : seuil à partir duquel la notification annonce « limite presque atteinte » (auparavant fixé dans le code).
 
 ### Modifié
 - **Credentials OAuth en lecture seule** : l'app ne rafraîchit plus jamais le token elle-même (ni à expiration, ni après un 429) et n'écrit plus dans `~/.claude/.credentials.json` ni dans le Keychain macOS. C'est Claude Code qui renouvelle le token ; à expiration, l'app affiche « Session expirée — ouvrir Claude Code » et relit les credentials toutes les 30 s jusqu'au renouvellement.
+- **Notifications traduites** : titres et messages des notifications de seuil et de réinitialisation suivent désormais la langue choisie (`language`, 6 langues) au lieu d'être toujours en français.
 
 ## [2.7.0] — 2026-09-29
 

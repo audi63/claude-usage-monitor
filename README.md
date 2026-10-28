@@ -18,12 +18,17 @@ Si vous l'aimez, une ⭐ sur le repo fait vraiment plaisir et aide le projet à 
 > **Projet publié à titre de présentation et de consultation.**
 > Tous droits réservés. Aucune utilisation, reproduction, modification, redistribution ou exploitation commerciale n'est autorisée sans accord écrit préalable de l'auteur. Voir [LICENSE.md](LICENSE.md).
 
-## ✨ Nouveautés v2.7
+## ✨ Nouveautés v2.8
+
+- **Notifications dans votre langue** : les alertes de seuil et de réinitialisation suivent la langue choisie (6 langues) au lieu d'être toujours en français.
+- **Seuil « limite presque atteinte » réglable** : nouveau réglage `notification_critical_threshold` (défaut 95 %).
+- **Credentials en lecture seule** : l'app ne rafraîchit plus le token OAuth elle-même ; c'est Claude Code qui s'en charge.
+
+## Nouveautés v2.7
 
 - **Limites par modèle de la gamme Claude 5** : les plafonds hebdomadaires propres à un modèle (ex. **Fable**) sont lus depuis l'API et affichés avec leur barre et leur compte à rebours — sans aucun nom de modèle codé en dur (les nouveaux modèles apparaîtront automatiquement). Ils déclenchent aussi les notifications de seuil.
 - **Crédits supplémentaires dans la devise du compte** : les montants s'affichent en **€** pour un compte européen (auparavant toujours « $US », à tort), avec l'état « crédits épuisés » quand c'est le cas.
 - **Répartition hebdomadaire par surface** : part de l'usage de la semaine entre Claude Code, Chats, Cowork…
-- **v2.7.1 — credentials en lecture seule** : l'app ne rafraîchit plus le token OAuth elle-même ; c'est Claude Code qui s'en charge.
 
 ## Nouveautés v2.6
 
@@ -179,6 +184,7 @@ Fichier optionnel `~/.claude/usage-monitor-config.json` :
   "notification_thresholds": [80, 95],
   "notifications_enabled": true,
   "notify_on_reset": true,
+  "notification_critical_threshold": 95,
   "always_on_top": true,
   "widget_opacity": 0.95,
   "widget_position": {
@@ -320,7 +326,7 @@ Le User-Agent `claude-code/2.0.31` est utilisé pour obtenir les vrais codes d'e
 
 Utilise l'API OAuth usage de Claude Code (`GET https://api.anthropic.com/api/oauth/usage`) avec le header `anthropic-beta: oauth-2025-04-20`. API non-officielle, peut changer sans préavis.
 
-Le token OAuth est lu depuis `~/.claude/.credentials.json` (partagé avec Claude Code), en **lecture seule** : l'app ne le rafraîchit jamais elle-même. À expiration, elle affiche « Session expirée — ouvrir Claude Code » et reprend dès que Claude Code a renouvelé le token (depuis v2.7.1).
+Le token OAuth est lu depuis `~/.claude/.credentials.json` (partagé avec Claude Code), en **lecture seule** : l'app ne le rafraîchit jamais elle-même. À expiration, elle affiche « Session expirée — ouvrir Claude Code » et reprend dès que Claude Code a renouvelé le token (depuis v2.8.0).
 
 ## Licence
 
