@@ -26,6 +26,10 @@ from claude_usage_monitor.updater import check_for_update
 
 logger = logging.getLogger(__name__)
 
+# Délai entre deux essais d'ouverture de l'affichage quand aucun écran n'est
+# utilisable (ex. PC sans moniteur branché : Xwayland expose un écran 0×0).
+DISPLAY_RETRY_SECONDS = 30
+
 
 class Application:
     """Application principale — orchestre les threads et composants."""
@@ -396,6 +400,33 @@ def _acquire_single_instance() -> bool:
             return False
 
 
+def _wait_for_display(retry_seconds: float = DISPLAY_RETRY_SECONDS) -> None:
+    """Attend qu'un affichage utilisable soit disponible pour Tk.
+
+    Sans écran (moniteur débranché, session sans sortie vidéo), ``tk.Tk()``
+    lève ``TclError`` (ex. « Can't find a usable tk.tcl » : l'écran 0×0 donne
+    un facteur d'échelle NaN). Plutôt que de planter en boucle, on patiente et
+    on réessaie jusqu'à ce qu'un écran apparaisse.
+    """
+    first_error = True
+    while True:
+        try:
+            probe = tk.Tk()
+        except tk.TclError as e:
+            if first_error:
+                logger.warning(
+                    "Aucun écran utilisable — nouvel essai toutes les %d s", retry_seconds
+                )
+                logger.debug("Erreur Tk : %s", e)
+                first_error = False
+            time.sleep(retry_seconds)
+            continue
+        probe.destroy()
+        if not first_error:
+            logger.info("Écran disponible — démarrage")
+        return
+
+
 def main() -> None:
     """Point d'entrée CLI."""
     # Gérer --version
@@ -456,6 +487,7 @@ def main() -> None:
         print("Claude Usage Monitor : impossible de prendre le contrôle.")
         sys.exit(1)
 
+    _wait_for_display()
     app = Application(updated_to=updated_to)
     app.run()
 

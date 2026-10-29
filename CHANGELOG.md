@@ -13,6 +13,9 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 - **Credentials OAuth en lecture seule** : l'app ne rafraîchit plus jamais le token elle-même (ni à expiration, ni après un 429) et n'écrit plus dans `~/.claude/.credentials.json` ni dans le Keychain macOS. C'est Claude Code qui renouvelle le token ; à expiration, l'app affiche « Session expirée — ouvrir Claude Code » et relit les credentials toutes les 30 s jusqu'au renouvellement.
 - **Notifications traduites** : titres et messages des notifications de seuil et de réinitialisation suivent désormais la langue choisie (`language`, 6 langues) au lieu d'être toujours en français.
 
+### Corrigé
+- **Plantage en boucle sans écran** : sans moniteur branché (Xwayland expose alors un écran 0×0), Tk échouait au démarrage (« Can't find a usable tk.tcl », facteur d'échelle NaN) et le service systemd redémarrait toutes les 10 s. L'app attend désormais qu'un écran soit disponible (nouvel essai toutes les 30 s) puis démarre normalement.
+
 ## [2.7.0] — 2026-09-29
 
 ### Ajouté
