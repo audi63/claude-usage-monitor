@@ -219,3 +219,12 @@ def test_429_does_not_trigger_token_refresh():
     post.assert_not_called()
     assert get.call_count == 1
     assert data.error
+
+
+def test_api_headers_sans_brotli():
+    """Brotli non décodable par requests sans paquet brotli : ne pas l'annoncer."""
+    from claude_usage_monitor.api import _api_headers
+
+    encodings = [e.strip() for e in _api_headers("x")["Accept-Encoding"].split(",")]
+    assert "br" not in encodings
+    assert "gzip" in encodings

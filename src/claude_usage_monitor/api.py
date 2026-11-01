@@ -90,7 +90,7 @@ def _api_headers(token: str) -> dict[str, str]:
         "Content-Type": "application/json",
         "User-Agent": f"claude-code/{detect_claude_code_version()}",
         "Accept": "application/json, text/plain, */*",
-        "Accept-Encoding": "gzip, compress, deflate, br",
+        "Accept-Encoding": "gzip, deflate",
     }
 
 

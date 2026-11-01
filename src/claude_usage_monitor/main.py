@@ -184,7 +184,9 @@ class Application:
         data = self.api_client.fetch_usage(force=force)
         if data is None:
             return  # Rate limit client — rien à faire, on garde les données existantes
-        if not data.error:
+        if data.error:
+            logger.warning("Relevé non enregistré : %s", data.error)
+        else:
             save_cache(data)
             save_history(data, self.config.get("history_retention_days", 7))
 
