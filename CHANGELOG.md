@@ -4,6 +4,15 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.8.1] — 2026-11-01
+
+### Corrigé
+- **Relevé du quota figé depuis le 2 octobre** : le service répond désormais en compression Brotli, que l'app annonçait sans pouvoir la décoder ; plus aucun relevé n'était enregistré. L'app n'annonce plus que gzip/deflate.
+- Les échecs de relevé sont maintenant écrits dans le journal.
+
+### Ajouté
+- Commande `python -m claude_usage_monitor.status` : affiche le dernier relevé en JSON sans ouvrir l'interface ; code de sortie 2 si le relevé est absent ou trop ancien (`--max-age`, 15 min par défaut).
+
 ## [2.8.0] — 2026-10-28
 
 ### Ajouté

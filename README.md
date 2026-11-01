@@ -20,6 +20,8 @@ Si vous l'aimez, une ⭐ sur le repo fait vraiment plaisir et aide le projet à 
 
 ## ✨ Nouveautés v2.8
 
+- **Relevé du quota réparé (2.8.1)** : le service répondait en Brotli, illisible pour l'app. Nouvelle commande `python -m claude_usage_monitor.status` pour lire le dernier relevé sans interface (code 2 si trop ancien).
+
 - **Notifications dans votre langue** : les alertes de seuil et de réinitialisation suivent la langue choisie (6 langues) au lieu d'être toujours en français.
 - **Seuil « limite presque atteinte » réglable** : nouveau réglage `notification_critical_threshold` (défaut 95 %).
 - **Credentials en lecture seule** : l'app ne rafraîchit plus le token OAuth elle-même ; c'est Claude Code qui s'en charge.
