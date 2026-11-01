@@ -47,13 +47,13 @@ Quand on publie une version, Claude exécute **toute** la séquence (ne jamais e
    nouveau code est déjà sur disque mais le **process en cours garde l'ancienne version en mémoire**
    tant qu'on ne redémarre pas → le tray affiche l'ancienne version et propose une MAJ en boucle
    (incident 2.6.0→2.6.1). Inutile de cliquer « Mettre à jour » dans le tray : le code editable fait
-   foi. Détail : `cortex/01-projects/claude-usage-monitor/notes/runbook-release-claude-usage-monitor.md`.
+   foi. Détail : `cortex/01-projects/cortex-os/claude-usage-monitor/notes/runbook-release-claude-usage-monitor.md`.
 7. **Cortex** : mettre à jour / créer la note du projet
-   (`cortex/01-projects/claude-usage-monitor/notes/`) et les tâches associées. **Toujours.**
+   (`cortex/01-projects/cortex-os/claude-usage-monitor/notes/`) et les tâches associées. **Toujours.**
 
 ## Contexte projet (lire avant d'agir)
 
-Pilotage dans `~/Projets/cortex/01-projects/claude-usage-monitor/` ; lire dans cet ordre :
+Pilotage dans `~/Projets/cortex/01-projects/cortex-os/claude-usage-monitor/` ; lire dans cet ordre :
 
 1. `context-claude-usage-monitor.md` — état courant (toujours en premier).
 2. Selon le besoin : `PRD-claude-usage-monitor.md` (périmètre), `DCT-claude-usage-monitor.md`
